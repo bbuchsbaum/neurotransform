@@ -1,0 +1,50 @@
+Package: neurotransform
+Title: Geometric Transforms for Neuroimaging Data
+Version: 0.1.0
+Authors@R:
+    person("Brad", "Buchsbaum", , "brad.buchsbaum@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-8268-1465"))
+Description: A self-contained, dependency-light library for geometric
+    transforms in neuroimaging. Provides affine and nonlinear (warp)
+    mappings between coordinate systems, plus volume-to-surface mapping
+    primitives. Emphasizes correctness, elegance, and composability with
+    a category-theoretic flavor.
+License: MIT + file LICENSE
+URL: https://github.com/bbuchsbaum/neurotransform
+BugReports: https://github.com/bbuchsbaum/neurotransform/issues
+Depends:
+    R (>= 4.0.0)
+Imports:
+    methods,
+    Rcpp (>= 1.0.0),
+    digest
+Suggests:
+    RNifti,
+    testthat (>= 3.0.0),
+    Matrix
+LinkingTo:
+    Rcpp,
+    RcppArmadillo
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Config/testthat/edition: 3
+Collate:
+    'RcppExports.R'
+    'zzz.R'
+    'aaa_utils.R'
+    'all_class.R'
+    'all_generic.R'
+    'coordinates.R'
+    'warp_loader.R'
+    'morphism.R'
+    'jacobian.R'
+    'sampler.R'
+    'warp_transform.R'
+    'warp_chain.R'
+    'transform_path.R'
+    'afni_warp.R'
+    'fsl_ingest.R'
+    'affine_utils.R'
+    'deformation_field.R'
+    'resampling_plan.R'

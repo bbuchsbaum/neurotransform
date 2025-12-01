@@ -1,0 +1,5 @@
+^\.claude$
+^.*\.Rproj$
+^\.Rproj\.user$
+^neurotransform\.Rcheck$
+^.*\.tar\.gz$
