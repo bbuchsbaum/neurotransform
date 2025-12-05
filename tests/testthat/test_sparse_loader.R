@@ -35,7 +35,7 @@ test_that("resample applies jacobian modulation factors", {
 test_that("warp loader registry returns expected loaders", {
   default_loader <- get_loader()
   expect_true(is.function(default_loader))
-  expect_identical(default_loader, neurotransform:::load_warp_rnifti)
+  expect_identical(default_loader, neurotransform:::load_warp_neuroim2)
   expect_error(get_loader("nonexistent"))
 
   called <- FALSE

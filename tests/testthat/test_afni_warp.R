@@ -15,19 +15,25 @@ test_that("afni_load_affine_morphism reads and converts aff12", {
   expect_true(is.matrix(m@matrix))
 })
 
-test_that("afni_warp_transform_coords flips RAI correctly with sample field", {
-  # Build a tiny warp in RAI space: +1 in z (inferior->superior flip should invert sign)
+test_that("afni_warp_transform_coords applies LPS to RAS conversion", {
+  # Build a tiny warp with displacement in X direction (LPS convention)
+  # LPS: +X=Left, so +1 displacement in X should become -1 in RAS
   dimf <- c(2L, 2L, 2L)
   disp <- array(0, dim = c(3, dimf))
-  disp[3, , , ] <- 1
-  # Save as temporary NIfTI using RNifti if available
-  skip_if_not_installed("RNifti")
+  disp[1, , , ] <- 1  # +1 displacement in X (LPS Left direction)
+
+  # Write using neuroim2 - need 4D array (X, Y, Z, 3)
   tmp <- tempfile(fileext = ".nii.gz")
-  RNifti::writeNifti(RNifti::asNifti(aperm(disp, c(2,3,4,1))), tmp)
+  arr4d <- aperm(disp, c(2, 3, 4, 1))  # Convert to (X, Y, Z, 3) for NIfTI
+  space <- neuroim2::NeuroSpace(dim = dim(arr4d))
+  vol <- neuroim2::NeuroVec(arr4d, space)
+  neuroim2::write_vec(vol, tmp)
 
   m <- Warp3DMorphism("src", "tgt", tmp, warp_type = "afni")
   coords <- matrix(c(0, 0, 0), ncol = 3)
   out <- afni_warp_transform_coords(m, coords)
-  # In RAS, expect -1 in z due to RAI flip before/after
-  expect_equal(out[1, 3], -1, tolerance = 1e-8)
+  # LPS->RAS: X is negated, so +1 becomes -1
+  expect_equal(out[1, 1], -1, tolerance = 1e-8)
+  # Z should be unchanged (same in LPS and RAS)
+  expect_equal(out[1, 3], 0, tolerance = 1e-8)
 })

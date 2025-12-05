@@ -8,7 +8,8 @@
 NULL
 
 .onLoad <- function(libname, pkgname) {
-
-  # Register default RNifti warp loader
-  register_loader("rnifti", load_warp_rnifti)
+  # Register default neuroim2 warp loader
+  register_loader("neuroim2", load_warp_neuroim2)
+  # Register ANTs H5 loader (requires hdf5r)
+  register_loader("ants_h5", load_warp_ants_h5)
 }

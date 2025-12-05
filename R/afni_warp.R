@@ -1,15 +1,32 @@
 #' @title AFNI Warp and Affine Handlers
 #' @name afni_warp
 #' @description
-#' AFNI-specific coordinate convention handling. AFNI uses RAI
-#' (Right-Anterior-Inferior) convention internally. These functions
-#' handle the RAI <-> RAS conversion.
+#' AFNI-specific coordinate convention handling. AFNI 3dQwarp stores
+#' displacement fields in DICOM/LPS convention. These functions handle
+#' the LPS <-> RAS conversion for warps and RAI <-> RAS for affines.
+#'
+#' @section Coordinate Systems:
+#' \itemize{
+#'   \item LPS (DICOM, used in AFNI warp displacements): +X=Left, +Y=Posterior, +Z=Superior
+#'   \item RAI (AFNI affines): +X=Right, +Y=Anterior, +Z=Inferior
+#'   \item RAS (NIfTI/neuroim2): +X=Right, +Y=Anterior, +Z=Superior
+#' }
+#'
+#' LPS to RAS: negate X and Y (Z is the same).
+#' RAI to RAS: negate Z only (X and Y are the same).
 NULL
 
-#' Apply AFNI warp (RAI displacement) to coordinates
+#' Apply AFNI warp displacement to coordinates
 #'
-#' AFNI 3dQwarp/Nwarp displacement fields are defined in RAI space.
-#' This function handles the RAS <-> RAI conversion automatically.
+#' AFNI 3dQwarp displacement fields store displacements in DICOM/LPS coordinate
+#' convention (Left-Posterior-Superior), but neuroim2/NIfTI uses RAS
+#' (Right-Anterior-Superior).
+#'
+#' The approach:
+#' 1. Use RAS world_to_vox to get voxel indices (NIfTI geometry is RAS)
+#' 2. Sample the displacement values (stored in DICOM/LPS convention)
+#' 3. Convert displacement from LPS to RAS (negate X and Y components)
+#' 4. Add RAS displacement to input RAS coords
 #'
 #' @param morphism A Warp3DMorphism with warp_type="afni"
 #' @param coords Numeric matrix (N x 3) of RAS world coordinates
@@ -21,22 +38,10 @@ afni_warp_transform_coords <- function(morphism, coords) {
   cache_env <- morphism@cache %||% new_cache_env()
   warp <- load_warp_array(morphism, cache_env = cache_env)
 
-  # AFNI warps are defined in RAI; if the header world_to_vox looks RAS (positive z scale), flip it
-  if (warp$world_to_vox[3, 3] > 0) {
-    rai_flip <- diag(c(1, 1, -1, 1))
-    warp$world_to_vox <- rai_flip %*% warp$world_to_vox
-  }
-
-  # AFNI displacements are in RAI; convert coords (RAS) to RAI, apply, flip back
-  ras_to_rai <- diag(c(1, 1, -1, 1))
-  rai_to_ras <- ras_to_rai  # same matrix (self-inverse for Z flip)
-
-  coords_h <- cbind(coords, 1)
-  coords_rai <- (coords_h %*% t(ras_to_rai))[, 1:3, drop = FALSE]
-  out_rai <- cpp_apply_warp_field(coords_rai, warp$array, warp$dim, warp$world_to_vox)
-  out_h <- cbind(out_rai, 1)
-  out_ras <- (out_h %*% t(rai_to_ras))[, 1:3, drop = FALSE]
-  out_ras
+  # LPS->RAS conversion is now done at load time in load_warp_array().
+  # The warp array already contains RAS-convention displacements,
+  # so we can apply directly.
+  cpp_apply_warp_field(coords, warp$array, warp$dim, warp$world_to_vox)
 }
 
 #' Read AFNI .aff12.1D affine matrix
