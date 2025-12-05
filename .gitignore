@@ -1,3 +1,4 @@
 
 # Large AFNI fixtures
 inst/extdata/afni/*.nii.gz
+..Rcheck/00check.log
