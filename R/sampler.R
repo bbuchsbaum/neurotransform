@@ -146,6 +146,12 @@ grid_from_data <- function(data) {
 #' @export
 setGeneric("extract_affine", function(x) standardGeneric("extract_affine"))
 
+# Define niftiImage as an old-style class if RNifti is present, to silence
+# method registration warnings when the class has not been loaded yet.
+if (!methods::isClass("niftiImage") && requireNamespace("RNifti", quietly = TRUE)) {
+  methods::setOldClass("niftiImage")
+}
+
 #' @rdname extract_affine
 #' @export
 setMethod("extract_affine", "array", function(x) {
@@ -162,6 +168,38 @@ setMethod("extract_affine", "matrix", function(x) {
   }
   diag(4)
 })
+
+# Fallback for RNifti objects without declaring the class
+#' @rdname extract_affine
+#' @export
+setMethod("extract_affine", "ANY", function(x) {
+  if (inherits(x, "niftiImage") && requireNamespace("RNifti", quietly = TRUE)) {
+    return(RNifti::xform(x))
+  }
+  diag(4)
+})
+
+# RNifti niftiImage support (conditional registration at load time)
+if (requireNamespace("RNifti", quietly = TRUE)) {
+  setMethod("extract_affine", "niftiImage", function(x) {
+    RNifti::xform(x)
+  })
+}
+
+# neuroim2 support (DenseNeuroVol / DenseNeuroVec are S3 classes)
+# Methods registered conditionally at load time
+if (requireNamespace("neuroim2", quietly = TRUE)) {
+  methods::setOldClass("DenseNeuroVol")
+  methods::setOldClass("DenseNeuroVec")
+
+  setMethod("extract_affine", "DenseNeuroVol", function(x) {
+    neuroim2::trans(x)
+  })
+
+  setMethod("extract_affine", "DenseNeuroVec", function(x) {
+    neuroim2::trans(x)
+  })
+}
 
 # RNifti support (conditional)
 # setMethod("extract_affine", "niftiImage", function(x) {

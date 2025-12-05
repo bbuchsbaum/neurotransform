@@ -2,7 +2,7 @@
 % Please edit documentation in R/deformation_field.R
 \name{deformation_field}
 \alias{deformation_field}
-\title{Create a deformation field from a morphism on a grid}
+\title{Deformation fields and Jacobian maps}
 \usage{
 deformation_field(morphism, grid, with_jacobian = TRUE, log = FALSE)
 }
@@ -19,5 +19,6 @@ deformation_field(morphism, grid, with_jacobian = TRUE, log = FALSE)
 An array with dim = c(grid@dims, 3) and class "DeformationField"
 }
 \description{
-Create a deformation field from a morphism on a grid
+Helpers to materialize morphisms on voxel grids for visualization or export,
+keeping the core morphism API untouched.
 }

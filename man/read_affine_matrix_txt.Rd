@@ -6,6 +6,11 @@
 \usage{
 read_affine_matrix_txt(file, type = NULL)
 }
+\arguments{
+\item{file}{Path to text file containing affine matrix}
+
+\item{type}{Optional type hint (overrides auto-detection)}
+}
 \value{
 list(matrix = 4x4, type = character|NULL)
 }

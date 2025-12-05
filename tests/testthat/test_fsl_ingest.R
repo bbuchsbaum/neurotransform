@@ -27,11 +27,12 @@ test_that("fsl_flirt_to_internal_affine matches known conversion", {
 })
 
 test_that("detect_fnirt_def_type handles tiny synthetic warp", {
-  skip_if_not_installed("RNifti")
+  skip_if_not_installed("neuroim2")
   dimf <- c(2, 2, 2, 3)
   arr <- array(0, dim = dimf)
   tmp <- tempfile(fileext = ".nii.gz")
-  RNifti::writeNifti(RNifti::asNifti(arr), tmp)
+  space <- neuroim2::NeuroSpace(dimf, trans = diag(4))
+  neuroim2::write_vec(neuroim2::DenseNeuroVec(arr, space), tmp, format = "nifti")
   def_type <- detect_fnirt_def_type(tmp, sample_n = 10, threshold_mm = 1)
   expect_equal(def_type, "relative")
 })

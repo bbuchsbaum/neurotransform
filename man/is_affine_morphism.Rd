@@ -6,6 +6,12 @@
 \usage{
 is_affine_morphism(x)
 }
+\arguments{
+\item{x}{Object to test}
+}
+\value{
+Logical
+}
 \description{
 Check if an object is an Affine3DMorphism
 }

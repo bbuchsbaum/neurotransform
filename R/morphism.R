@@ -17,6 +17,10 @@ NULL
 #' @return Character hash string
 #' @export
 morphism_hash <- function(object) {
+  if (methods::is(object, "MorphismPath")) {
+    comp_hashes <- vapply(object@morphisms, morphism_hash, character(1))
+    return(compute_hash("morphism_path", comp_hashes))
+  }
   if (!methods::is(object, "Morphism")) stop("object must be a Morphism")
   compute_hash(
     object@id,
@@ -178,9 +182,10 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @param source Source domain hash
 #' @param target Target domain hash
 #' @param warp_path Path to displacement field file
-#' @param warp_type One of "ants", "fsl", "afni", "freesurfer"
+#' @param warp_type One of "ants", "ants_h5", "fsl", "afni", "freesurfer"
 #' @param inverse_path Path to inverse warp (optional)
 #' @param def_type Deformation type: "relative" (displacement) or "absolute" (coordinates)
+#' @param warp_method Interpolation method for warp field lookup: "linear" or "cubic"
 #' @param cost Path cost (default 1.5)
 #' @param method_tag Method tag (default "anatomical")
 #' @return Warp3DMorphism object
@@ -188,12 +193,17 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @examples
 #' warp <- Warp3DMorphism("native", "mni", "path/to/warp.nii.gz")
 Warp3DMorphism <- function(source, target, warp_path,
-                           warp_type = c("ants", "fsl", "afni", "freesurfer"),
-                           inverse_path = "", def_type = c("relative", "absolute"),
+                           warp_type = c("ants", "ants_h5", "fsl", "afni", "freesurfer"),
+                           inverse_path = "", def_type = NULL,
                            warp_method = c("linear", "cubic"),
                            cost = 1.5, method_tag = "anatomical") {
   warp_type <- match.arg(warp_type)
-  def_type <- match.arg(def_type)
+  if (is.null(def_type)) {
+    # ANTs H5 and other displacement fields store relative offsets (not absolute coords).
+    # AFNI 3dQwarp also stores DICOM-order displacement fields.
+    def_type <- "relative"
+  }
+  def_type <- match.arg(def_type, c("relative", "absolute"))
   warp_method <- match.arg(warp_method)
   if (!is.character(source) || length(source) != 1L) stop("source must be a single character")
   if (!is.character(target) || length(target) != 1L) stop("target must be a single character")

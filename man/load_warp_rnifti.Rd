@@ -2,17 +2,11 @@
 % Please edit documentation in R/warp_loader.R
 \name{load_warp_rnifti}
 \alias{load_warp_rnifti}
-\title{Default RNifti warp loader}
+\title{RNifti warp loader (legacy fallback)}
 \usage{
 load_warp_rnifti(path)
 }
-\arguments{
-\item{path}{Path to NIfTI warp file}
-}
-\value{
-List with array, dim, world_to_vox
-}
 \description{
-Loads a NIfTI displacement field using RNifti package.
+RNifti warp loader (legacy fallback)
 }
 \keyword{internal}

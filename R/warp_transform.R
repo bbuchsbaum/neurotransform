@@ -32,6 +32,26 @@ warp_transform_coords <- function(morphism, coords) {
 
   method <- morphism@params$warp_method %||% "linear"
 
+  # ANTs H5 files store displacement fields in LPS (ITK convention).
+  # However, the actual coordinate system depends on the warp field's vox_to_world matrix:
+  # - If vox_to_world has negative diagonal elements, it's in LPS physical coordinates
+  # - If vox_to_world is identity, coordinates are just voxel indices (no conversion needed)
+  #
+  # The warp's world_to_vox matrix already handles coordinate conversion appropriately,
+  # so we don't need to manually flip coordinates here.
+  is_ants_h5 <- identical(morphism@warp_type, "ants_h5")
+
+  # Use coordinates directly - the warp's world_to_vox handles any needed conversion
+  coords_in <- coords
+
+  # Note: For ANTs composite H5 files, the embedded affine is typically meant to be
+  # applied AFTER the displacement field in the pullback direction. However, when
+  # using ants_h5_morphism() with apply_affine=TRUE, the affine is extracted as a
+  # separate MorphismPath component. Here we don't apply the embedded affine -
+  # that should be handled by MorphismPath if needed.
+  embedded_affine <- warp$affine
+  warp$affine <- NULL  # Don't apply here; handled separately
+
   # Handle absolute vs relative displacement fields
   def_type <- morphism@params$def_type %||% "relative"
   if (identical(def_type, "absolute")) {
@@ -47,10 +67,13 @@ warp_transform_coords <- function(morphism, coords) {
     warp <- disp
   }
 
-  if (identical(method, "cubic")) {
-    return(cpp_apply_warp_field_cubic(coords, warp$array, warp$dim, warp$world_to_vox))
+  result <- if (identical(method, "cubic")) {
+    cpp_apply_warp_field_cubic(coords_in, warp$array, warp$dim, warp$world_to_vox)
+  } else {
+    cpp_apply_warp_field(coords_in, warp$array, warp$dim, warp$world_to_vox)
   }
-  cpp_apply_warp_field(coords, warp$array, warp$dim, warp$world_to_vox)
+
+  result
 }
 
 #' Compose two warp morphisms

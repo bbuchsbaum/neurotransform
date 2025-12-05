@@ -7,6 +7,7 @@ Status snapshot (tests passing as of last run):
 - Fixtures: AFNI/FSL/ANTs affines and warps validated in tests.
 - AFNI, FSL ingestion helpers: covered.
 - Surface/barycentric sampling: unskipped and tested.
+- Default warp I/O now routes through neuroim2 (RNifti kept only as optional fallback); neuroim2 affine extraction and tests added.
 
 Pending/nice-to-have items:
 - Additional cache invalidation cues (e.g., hash underlying files) if workflows involve frequent file changes.

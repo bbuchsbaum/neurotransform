@@ -6,6 +6,16 @@
 \usage{
 jacobian_det_field(morphism, grid, log = FALSE)
 }
+\arguments{
+\item{morphism}{A Morphism (affine or warp)}
+
+\item{grid}{A Grid object}
+
+\item{log}{Logical; if TRUE, return log-Jacobian determinants}
+}
+\value{
+Array with grid dimensions containing Jacobian determinants
+}
 \description{
 Extract Jacobian determinant volume from a morphism on a grid
 }

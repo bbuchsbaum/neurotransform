@@ -6,6 +6,16 @@
 \usage{
 affine_from_components(source, target, ...)
 }
+\arguments{
+\item{source}{Source domain identifier}
+
+\item{target}{Target domain identifier}
+
+\item{...}{Arguments passed to \code{\link{build_affine_matrix}}}
+}
+\value{
+Affine3DMorphism object
+}
 \description{
 Wrap an affine matrix built from components into an Affine3DMorphism
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/afni_warp.R
 \name{afni_warp_transform_coords}
 \alias{afni_warp_transform_coords}
-\title{Apply AFNI warp (RAI displacement) to coordinates}
+\title{Apply AFNI warp displacement to coordinates}
 \usage{
 afni_warp_transform_coords(morphism, coords)
 }
@@ -15,7 +15,13 @@ afni_warp_transform_coords(morphism, coords)
 Transformed RAS coordinates
 }
 \description{
-AFNI 3dQwarp/Nwarp displacement fields are defined in RAI space.
-This function handles the RAS <-> RAI conversion automatically.
+AFNI 3dQwarp displacement fields are stored in DICOM coordinate order.
+This function handles the RAS <-> DICOM coordinate conversion:
+\enumerate{
+\item Convert input RAS coords to DICOM
+\item Sample displacement (in DICOM) using DICOM world_to_vox
+\item Add displacement to DICOM coords
+\item Convert result back to RAS
+}
 }
 \keyword{internal}

@@ -8,9 +8,9 @@ Warp3DMorphism(
   source,
   target,
   warp_path,
-  warp_type = c("ants", "fsl", "afni", "freesurfer"),
+  warp_type = c("ants", "ants_h5", "fsl", "afni", "freesurfer"),
   inverse_path = "",
-  def_type = c("relative", "absolute"),
+  def_type = NULL,
   warp_method = c("linear", "cubic"),
   cost = 1.5,
   method_tag = "anatomical"
@@ -23,11 +23,13 @@ Warp3DMorphism(
 
 \item{warp_path}{Path to displacement field file}
 
-\item{warp_type}{One of "ants", "fsl", "afni", "freesurfer"}
+\item{warp_type}{One of "ants", "ants_h5", "fsl", "afni", "freesurfer"}
 
 \item{inverse_path}{Path to inverse warp (optional)}
 
 \item{def_type}{Deformation type: "relative" (displacement) or "absolute" (coordinates)}
+
+\item{warp_method}{Interpolation method for warp field lookup: "linear" or "cubic"}
 
 \item{cost}{Path cost (default 1.5)}
 

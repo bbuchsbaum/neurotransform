@@ -13,7 +13,7 @@ Stores metadata; the actual warp field is loaded on demand.
 \describe{
 \item{\code{warp_path}}{Path to the warp field file}
 
-\item{\code{warp_type}}{Type of warp ("ants", "fsl", "afni", "freesurfer")}
+\item{\code{warp_type}}{Type of warp ("ants", "ants_h5", "fsl", "afni", "freesurfer")}
 
 \item{\code{inverse_path}}{Path to inverse warp (if available)}
 }}

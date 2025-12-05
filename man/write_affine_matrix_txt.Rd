@@ -6,6 +6,18 @@
 \usage{
 write_affine_matrix_txt(matrix, file, type = NULL, comment = TRUE)
 }
+\arguments{
+\item{matrix}{4x4 numeric affine matrix}
+
+\item{file}{Output file path}
+
+\item{type}{Optional type label to write as comment}
+
+\item{comment}{Logical; if TRUE, write type as comment header}
+}
+\value{
+Invisibly returns the file path
+}
 \description{
 Write a 4x4 affine matrix to a text file
 }

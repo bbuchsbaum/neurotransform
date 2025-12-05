@@ -1,14 +1,19 @@
 #' @title Affine utilities (matrix-level and morphism helpers)
+#' @name affine_utils
 #' @description
 #' Lightweight helpers for building, decomposing, and testing affine transforms
 #' without introducing external dependencies or tool-specific semantics.
 NULL
 
 #' Check if an object is an Affine3DMorphism
+#' @param x Object to test
+#' @return Logical
 #' @export
 is_affine_morphism <- function(x) inherits(x, "Affine3DMorphism")
 
 #' Check if an object is a numeric 4x4 affine matrix
+#' @param x Object to test
+#' @return Logical
 #' @export
 is_affine_matrix <- function(x) {
   is.matrix(x) && all(dim(x) == c(4L, 4L)) && is.numeric(x) && all(is.finite(x))
@@ -136,6 +141,11 @@ decompose_affine_matrix <- function(matrix) {
 }
 
 #' Wrap an affine matrix built from components into an Affine3DMorphism
+#'
+#' @param source Source domain identifier
+#' @param target Target domain identifier
+#' @param ... Arguments passed to \code{\link{build_affine_matrix}}
+#' @return Affine3DMorphism object
 #' @export
 affine_from_components <- function(source, target, ...) {
   mat <- build_affine_matrix(...)
@@ -146,6 +156,9 @@ affine_from_components <- function(source, target, ...) {
 #'
 #' Comment lines (starting with "#") are ignored. If a line contains
 #' "affineType:" the value is returned as the detected type.
+#'
+#' @param file Path to text file containing affine matrix
+#' @param type Optional type hint (overrides auto-detection)
 #' @return list(matrix = 4x4, type = character|NULL)
 #' @export
 read_affine_matrix_txt <- function(file, type = NULL) {
@@ -166,6 +179,12 @@ read_affine_matrix_txt <- function(file, type = NULL) {
 }
 
 #' Write a 4x4 affine matrix to a text file
+#'
+#' @param matrix 4x4 numeric affine matrix
+#' @param file Output file path
+#' @param type Optional type label to write as comment
+#' @param comment Logical; if TRUE, write type as comment header
+#' @return Invisibly returns the file path
 #' @export
 write_affine_matrix_txt <- function(matrix, file, type = NULL, comment = TRUE) {
   if (!is_affine_matrix(matrix)) stop("matrix must be 4x4 numeric")

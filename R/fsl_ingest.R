@@ -129,16 +129,16 @@ fsl_load_flirt_morphism <- function(source, target, mat_path, cost = 1.0, method
 #' def_type <- detect_fnirt_def_type("warp.nii.gz")
 #' }
 detect_fnirt_def_type <- function(warp_path, sample_n = 200, threshold_mm = 5) {
-  if (!requireNamespace("RNifti", quietly = TRUE)) {
-    stop("RNifti required for FNIRT detection")
+  if (!requireNamespace("neuroim2", quietly = TRUE)) {
+    stop("neuroim2 required for FNIRT detection")
   }
   if (!file.exists(warp_path)) stop("Warp file not found: ", warp_path)
 
-  img <- RNifti::readNifti(warp_path)
+  img <- neuroim2::read_vec(warp_path)
   dim4 <- dim(img)
   if (length(dim4) < 4 || dim4[4] < 3) stop("Warp must be 4D with last dim length 3")
 
-  aff <- RNifti::xform(img)
+  aff <- neuroim2::trans(img)
 
   # Sample voxels uniformly (0-based indices)
   set.seed(1L)

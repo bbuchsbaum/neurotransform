@@ -17,7 +17,8 @@ Depends:
 Imports:
     methods,
     Rcpp (>= 1.0.0),
-    digest
+    digest,
+    neuroim2
 Suggests:
     RNifti,
     testthat (>= 3.0.0),
@@ -36,6 +37,7 @@ Collate:
     'all_class.R'
     'all_generic.R'
     'coordinates.R'
+    'io_helpers.R'
     'warp_loader.R'
     'morphism.R'
     'jacobian.R'

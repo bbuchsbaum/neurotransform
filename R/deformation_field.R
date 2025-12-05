@@ -1,4 +1,5 @@
 #' @title Deformation fields and Jacobian maps
+#' @name deformation_field
 #' @description
 #' Helpers to materialize morphisms on voxel grids for visualization or export,
 #' keeping the core morphism API untouched.
@@ -38,6 +39,11 @@ deformation_field <- function(morphism, grid, with_jacobian = TRUE, log = FALSE)
 }
 
 #' Extract Jacobian determinant volume from a morphism on a grid
+#'
+#' @param morphism A Morphism (affine or warp)
+#' @param grid A Grid object
+#' @param log Logical; if TRUE, return log-Jacobian determinants
+#' @return Array with grid dimensions containing Jacobian determinants
 #' @export
 jacobian_det_field <- function(morphism, grid, log = FALSE) {
   coords <- grid_coords(grid)

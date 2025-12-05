@@ -223,6 +223,8 @@ setMethod("jacobian", "Warp3DMorphism", function(morphism, coords,
                                                   mode = c("pullback", "pushforward")) {
   mode <- match.arg(mode)
 
+  coords_in <- coords
+
   # Load warp field
   cache_env <- morphism@cache %||% new_cache_env()
   warp <- load_warp_array(morphism, cache_env = cache_env)
@@ -232,7 +234,7 @@ setMethod("jacobian", "Warp3DMorphism", function(morphism, coords,
   # Compute via C++ (finite differences on displacement field)
   values <- if (identical(method, "cubic")) {
     cpp_warp_jacobian_cubic(
-      coords = coords,
+      coords = coords_in,
       field = warp$array,
       dim = warp$dim,
       world_to_vox = warp$world_to_vox,
@@ -240,7 +242,7 @@ setMethod("jacobian", "Warp3DMorphism", function(morphism, coords,
     )
   } else {
     cpp_warp_jacobian(
-      coords = coords,
+      coords = coords_in,
       field = warp$array,
       dim = warp$dim,
       world_to_vox = warp$world_to_vox,
@@ -270,6 +272,8 @@ setMethod("jacobian_det", "Warp3DMorphism", function(morphism, coords, log = FAL
                                                       mode = c("pullback", "pushforward")) {
   mode <- match.arg(mode)
 
+  coords_in <- coords
+
   cache_env <- morphism@cache %||% new_cache_env()
   warp <- load_warp_array(morphism, cache_env = cache_env)
 
@@ -277,7 +281,7 @@ setMethod("jacobian_det", "Warp3DMorphism", function(morphism, coords, log = FAL
 
   dets <- if (identical(method, "cubic")) {
     cpp_warp_jacobian_det_cubic(
-      coords = coords,
+      coords = coords_in,
       field = warp$array,
       dim = warp$dim,
       world_to_vox = warp$world_to_vox,
@@ -285,7 +289,7 @@ setMethod("jacobian_det", "Warp3DMorphism", function(morphism, coords, log = FAL
     )
   } else {
     cpp_warp_jacobian_det(
-      coords = coords,
+      coords = coords_in,
       field = warp$array,
       dim = warp$dim,
       world_to_vox = warp$world_to_vox,

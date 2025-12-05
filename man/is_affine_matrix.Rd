@@ -6,6 +6,12 @@
 \usage{
 is_affine_matrix(x)
 }
+\arguments{
+\item{x}{Object to test}
+}
+\value{
+Logical
+}
 \description{
 Check if an object is a numeric 4x4 affine matrix
 }

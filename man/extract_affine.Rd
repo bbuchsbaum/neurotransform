@@ -4,6 +4,7 @@
 \alias{extract_affine}
 \alias{extract_affine,array-method}
 \alias{extract_affine,matrix-method}
+\alias{extract_affine,ANY-method}
 \title{Extract affine matrix from data}
 \usage{
 extract_affine(x)
@@ -11,6 +12,8 @@ extract_affine(x)
 \S4method{extract_affine}{array}(x)
 
 \S4method{extract_affine}{matrix}(x)
+
+\S4method{extract_affine}{ANY}(x)
 }
 \arguments{
 \item{x}{Data object}
