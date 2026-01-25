@@ -146,12 +146,6 @@ grid_from_data <- function(data) {
 #' @export
 setGeneric("extract_affine", function(x) standardGeneric("extract_affine"))
 
-# Define niftiImage as an old-style class if RNifti is present, to silence
-# method registration warnings when the class has not been loaded yet.
-if (!methods::isClass("niftiImage") && requireNamespace("RNifti", quietly = TRUE)) {
-  methods::setOldClass("niftiImage")
-}
-
 #' @rdname extract_affine
 #' @export
 setMethod("extract_affine", "array", function(x) {
@@ -179,32 +173,21 @@ setMethod("extract_affine", "ANY", function(x) {
   diag(4)
 })
 
-# RNifti niftiImage support (conditional registration at load time)
-if (requireNamespace("RNifti", quietly = TRUE)) {
-  setMethod("extract_affine", "niftiImage", function(x) {
-    RNifti::xform(x)
-  })
-}
+# neuroim2 support (DenseNeuroVol / DenseNeuroVec are S3 classes; register as old-style S4)
+if (!methods::isClass("DenseNeuroVol")) methods::setOldClass("DenseNeuroVol")
+if (!methods::isClass("DenseNeuroVec")) methods::setOldClass("DenseNeuroVec")
 
-# neuroim2 support (DenseNeuroVol / DenseNeuroVec are S3 classes)
-# Methods registered conditionally at load time
-if (requireNamespace("neuroim2", quietly = TRUE)) {
-  methods::setOldClass("DenseNeuroVol")
-  methods::setOldClass("DenseNeuroVec")
+#' @rdname extract_affine
+#' @export
+setMethod("extract_affine", "DenseNeuroVol", function(x) {
+  neuroim2::trans(x)
+})
 
-  setMethod("extract_affine", "DenseNeuroVol", function(x) {
-    neuroim2::trans(x)
-  })
-
-  setMethod("extract_affine", "DenseNeuroVec", function(x) {
-    neuroim2::trans(x)
-  })
-}
-
-# RNifti support (conditional)
-# setMethod("extract_affine", "niftiImage", function(x) {
-#   RNifti::xform(x)
-# })
+#' @rdname extract_affine
+#' @export
+setMethod("extract_affine", "DenseNeuroVec", function(x) {
+  neuroim2::trans(x)
+})
 
 # =============================================================================
 # SAMPLER CONSTRUCTORS
@@ -465,4 +448,110 @@ sample_volume_on_surface <- function(data, morphism, surface_coords = NULL,
   # Standard sampling
   source_coords <- transform(morphism, surface_coords)
   sampler@evaluate(source_coords)
+}
+
+#' Backproject surface values into a volume (adjoint of VolToSurf sampling)
+#'
+#' Implements a simple backprojection operator that distributes each surface
+#' value into the source volume grid using the same interpolation weights that
+#' forward sampling would use.
+#'
+#' This is the transpose/adjoint of the linear sampling operator for
+#' \code{sample_volume_on_surface(..., method="linear")} when the same
+#' \code{surface_coords} are used.
+#'
+#' @param surface_values Numeric vector (length N) or matrix (N x k) of values at surface points
+#' @param morphism VolToSurfMorphism
+#' @param grid Source Grid (volume geometry)
+#' @param surface_coords Optional N x 3 world coordinates; defaults to morphism@params$mid_coords
+#' @param method "linear", "nearest", or "ribbon"
+#' @param outside Value used for out-of-bounds (default 0)
+#' @return 3D array (or 4D if multivariate surface_values) in grid geometry
+#' @export
+backproject_surface_to_volume <- function(surface_values, morphism, grid,
+                                         surface_coords = NULL,
+                                         method = c("linear", "nearest", "ribbon"),
+                                         outside = 0) {
+  method <- match.arg(method)
+  if (!is(morphism, "VolToSurfMorphism")) stop("morphism must be a VolToSurfMorphism")
+  if (!inherits(grid, "Grid")) stop("grid must be a Grid")
+
+  if (is.null(surface_coords)) {
+    surface_coords <- morphism@params$mid_coords
+  }
+  if (is.null(surface_coords)) stop("surface_coords required (or provide morphism@params$mid_coords)")
+  if (!is.matrix(surface_coords) || ncol(surface_coords) != 3) stop("surface_coords must be an N x 3 matrix")
+
+  n <- nrow(surface_coords)
+  if (is.vector(surface_values)) {
+    if (length(surface_values) != n) stop("surface_values length must match nrow(surface_coords)")
+    surface_mat <- matrix(surface_values, ncol = 1)
+  } else if (is.matrix(surface_values)) {
+    if (nrow(surface_values) != n) stop("surface_values nrow must match nrow(surface_coords)")
+    surface_mat <- surface_values
+  } else {
+    stop("surface_values must be a numeric vector or matrix")
+  }
+
+  dims <- as.integer(grid@dims)
+  nvox <- prod(dims)
+  vdim <- ncol(surface_mat)
+
+  out <- matrix(0, nrow = nvox, ncol = vdim)
+
+  # Convert world -> voxel (continuous, 0-based)
+  w2v <- solve(grid@affine)
+  vox <- apply_affine(surface_coords, w2v)
+
+  if (identical(method, "nearest")) {
+    xi <- as.integer(floor(vox[, 1] + 0.5))
+    yi <- as.integer(floor(vox[, 2] + 0.5))
+    zi <- as.integer(floor(vox[, 3] + 0.5))
+    keep <- xi >= 0 & yi >= 0 & zi >= 0 & xi < dims[1] & yi < dims[2] & zi < dims[3]
+    if (any(keep)) {
+      lin <- xi[keep] + yi[keep] * dims[1] + zi[keep] * dims[1] * dims[2] + 1L
+      for (k in seq_len(vdim)) {
+        tmp <- rowsum(surface_mat[keep, k, drop = TRUE], group = lin, reorder = FALSE)
+        out[as.integer(rownames(tmp)), k] <- out[as.integer(rownames(tmp)), k] + tmp[, 1]
+      }
+    }
+  } else if (identical(method, "linear")) {
+    w <- cpp_trilinear_weights(vox, dims)
+    if (length(w$rows) > 0) {
+      rows <- w$rows
+      cols <- w$cols
+      vals <- w$vals
+      for (k in seq_len(vdim)) {
+        contrib <- surface_mat[rows, k, drop = TRUE] * vals
+        tmp <- rowsum(contrib, group = cols, reorder = FALSE)
+        out[as.integer(rownames(tmp)), k] <- out[as.integer(rownames(tmp)), k] + tmp[, 1]
+      }
+    }
+  } else {
+    inner <- morphism@params$ribbon_inner_coords
+    outer <- morphism@params$ribbon_outer_coords
+    if (is.null(inner) || is.null(outer)) stop("ribbon backprojection requires ribbon_inner_coords and ribbon_outer_coords in morphism@params")
+    mask <- rep(TRUE, nvox)
+    w <- cpp_ribbon_weights(inner, outer, w2v, dims, n_steps = morphism@n_ribbon_samples, mask = mask)
+    if (length(w$rows) > 0) {
+      rows <- w$rows
+      cols <- w$cols
+      vals <- w$vals
+      for (k in seq_len(vdim)) {
+        contrib <- surface_mat[rows, k, drop = TRUE] * vals
+        tmp <- rowsum(contrib, group = cols, reorder = FALSE)
+        out[as.integer(rownames(tmp)), k] <- out[as.integer(rownames(tmp)), k] + tmp[, 1]
+      }
+    }
+  }
+
+  # Outside fill (currently only affects OOB points by contributing nothing)
+  if (!identical(outside, 0)) {
+    out[!is.finite(out)] <- outside
+  }
+
+  if (vdim == 1) {
+    return(array(out[, 1], dim = dims))
+  }
+  array(out, dim = c(dims, vdim))
 }

@@ -44,7 +44,7 @@ setGeneric("compose", function(f, g) standardGeneric("compose"))
 
 #' Invert a morphism
 #'
-#' Returns the inverse morphism if available (inverse_type == "exact" or "provided").
+#' Returns the inverse morphism if available (inverse_type == "exact" or "approximate").
 #' For morphisms with approximate or adjoint inverses, use adjoint() instead.
 #'
 #' @param object A Morphism object
@@ -57,9 +57,10 @@ setGeneric("invert", function(object) standardGeneric("invert"))
 
 #' Get adjoint (generalized inverse)
 #'
-#' Returns an adjoint morphism for non-invertible transforms (e.g., VolToSurf).
-#' The adjoint is mathematically defined as the transpose operator at the
-#' projector level, but exposed here for convenience.
+#' Returns an adjoint morphism when defined.
+#'
+#' For invertible morphisms, \code{adjoint()} is defined and equals \code{invert()}.
+#' For other morphisms, \code{adjoint()} may not be implemented and will error.
 #'
 #' @param object A Morphism object
 #' @param ... Additional arguments
@@ -88,8 +89,10 @@ setGeneric("source_of", function(object) standardGeneric("source_of"))
 setGeneric("target_of", function(object) standardGeneric("target_of"))
 
 # Compatibility domain generics
+#' @rdname source_of
 #' @export
 setGeneric("source_domain", function(object) standardGeneric("source_domain"))
+#' @rdname target_of
 #' @export
 setGeneric("target_domain", function(object) standardGeneric("target_domain"))
 

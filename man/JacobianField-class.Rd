@@ -5,6 +5,7 @@
 \alias{JacobianField-class}
 \alias{show,JacobianField-method}
 \alias{[,JacobianField,numeric,ANY,ANY-method}
+\alias{[,JacobianField,numeric-method}
 \alias{length,JacobianField-method}
 \alias{det,JacobianField-method}
 \alias{solve,JacobianField,missing-method}

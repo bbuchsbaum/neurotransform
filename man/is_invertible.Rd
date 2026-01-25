@@ -13,7 +13,7 @@ is_invertible(object)
 Logical
 }
 \description{
-Returns TRUE only if inverse_type is "exact" (mathematically perfect inverse).
+Returns TRUE only if a geometric inverse is available via \code{invert()}.
 }
 \examples{
 aff <- Affine3DMorphism("a", "b", diag(4))

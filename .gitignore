@@ -2,3 +2,16 @@
 # Large AFNI fixtures
 inst/extdata/afni/*.nii.gz
 ..Rcheck/00check.log
+
+# R build/check artifacts
+*.tar.gz
+*.Rcheck/
+neurotransform.Rcheck/
+..Rcheck/
+
+# Compiled artifacts
+src/*.o
+src/*.so
+
+# testthat snapshots
+tests/testthat/_snaps/

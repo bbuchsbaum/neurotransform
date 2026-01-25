@@ -4,7 +4,19 @@
 \alias{afni_warp}
 \title{AFNI Warp and Affine Handlers}
 \description{
-AFNI-specific coordinate convention handling. AFNI uses RAI
-(Right-Anterior-Inferior) convention internally. These functions
-handle the RAI <-> RAS conversion.
+AFNI-specific coordinate convention handling. AFNI 3dQwarp stores
+displacement fields in DICOM/LPS convention. These functions handle
+the LPS <-> RAS conversion for warps and RAI <-> RAS for affines.
 }
+\section{Coordinate Systems}{
+
+\itemize{
+\item LPS (DICOM, used in AFNI warp displacements): +X=Left, +Y=Posterior, +Z=Superior
+\item RAI (AFNI affines): +X=Right, +Y=Anterior, +Z=Inferior
+\item RAS (NIfTI/neuroim2): +X=Right, +Y=Anterior, +Z=Superior
+}
+
+LPS to RAS: negate X and Y (Z is the same).
+RAI to RAS: negate Z only (X and Y are the same).
+}
+

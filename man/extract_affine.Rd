@@ -5,6 +5,8 @@
 \alias{extract_affine,array-method}
 \alias{extract_affine,matrix-method}
 \alias{extract_affine,ANY-method}
+\alias{extract_affine,DenseNeuroVol-method}
+\alias{extract_affine,DenseNeuroVec-method}
 \title{Extract affine matrix from data}
 \usage{
 extract_affine(x)
@@ -14,6 +16,10 @@ extract_affine(x)
 \S4method{extract_affine}{matrix}(x)
 
 \S4method{extract_affine}{ANY}(x)
+
+\S4method{extract_affine}{DenseNeuroVol}(x)
+
+\S4method{extract_affine}{DenseNeuroVec}(x)
 }
 \arguments{
 \item{x}{Data object}

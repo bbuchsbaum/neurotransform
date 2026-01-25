@@ -6,6 +6,7 @@
 \alias{transform,Affine3DMorphism-method}
 \alias{transform,Warp3DMorphism-method}
 \alias{transform,VolToSurfMorphism-method}
+\alias{transform,SurfToSurfMorphism-method}
 \alias{transform,MorphismPath-method}
 \title{Transform coordinates through a morphism (pullback)}
 \usage{
@@ -18,6 +19,8 @@ transform(morphism, coords)
 \S4method{transform}{Warp3DMorphism}(morphism, coords)
 
 \S4method{transform}{VolToSurfMorphism}(morphism, coords)
+
+\S4method{transform}{SurfToSurfMorphism}(morphism, coords)
 
 \S4method{transform}{MorphismPath}(morphism, coords)
 }

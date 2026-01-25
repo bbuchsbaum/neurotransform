@@ -10,7 +10,7 @@ get_loader(name = NULL)
 get_warp_loader(name = NULL)
 }
 \arguments{
-\item{name}{Loader name (default "rnifti")}
+\item{name}{Loader name (default "neuroim2")}
 }
 \value{
 Loader function
@@ -19,5 +19,5 @@ Loader function
 Gets a loader function from the registry.
 }
 \examples{
-loader <- get_loader("rnifti")
+loader <- get_loader("neuroim2")
 }

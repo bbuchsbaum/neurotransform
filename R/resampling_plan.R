@@ -1,4 +1,5 @@
 #' @title Resampling plans for repeated volume resampling
+#' @name resampling_plan
 #' @description
 #' Plan once, apply many times: precompute target voxel centres and flatten the
 #' morphism path so repeated resampling of multiple volumes is cheap while

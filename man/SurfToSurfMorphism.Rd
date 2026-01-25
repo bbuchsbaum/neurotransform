@@ -10,6 +10,10 @@ SurfToSurfMorphism(
   method = c("sphere", "area", "sulc"),
   source_sphere = "",
   target_sphere = "",
+  mapping = c("nearest", "barycentric"),
+  source_vertices = NULL,
+  target_vertices = NULL,
+  faces = NULL,
   cost = 1,
   method_tag = "anatomical"
 )
@@ -24,6 +28,19 @@ SurfToSurfMorphism(
 \item{source_sphere}{Path to source sphere surface}
 
 \item{target_sphere}{Path to target sphere surface}
+
+\item{mapping}{How to map target points onto the source mesh.
+\code{"nearest"} maps by nearest target vertex (index correspondence);
+\code{"barycentric"} maps using barycentric weights on target faces.}
+
+\item{source_vertices}{Optional V x 3 numeric matrix of source mesh vertices.
+Required for \code{mapping="nearest"} and \code{mapping="barycentric"}.}
+
+\item{target_vertices}{Optional V x 3 numeric matrix of target mesh vertices.
+Required for \code{mapping="nearest"} and \code{mapping="barycentric"}.}
+
+\item{faces}{Optional F x 3 integer matrix of triangle vertex indices (0- or 1-based).
+Required for \code{mapping="barycentric"}.}
 
 \item{cost}{Path cost (default 1.0)}
 

@@ -2,12 +2,15 @@
 % Please edit documentation in R/all_generic.R, R/morphism.R
 \name{source_of}
 \alias{source_of}
+\alias{source_domain}
 \alias{source_of,Morphism-method}
 \alias{source_domain,Morphism-method}
 \alias{source_of,MorphismPath-method}
 \title{Get source domain of a morphism}
 \usage{
 source_of(object)
+
+source_domain(object)
 
 \S4method{source_of}{Morphism}(object)
 

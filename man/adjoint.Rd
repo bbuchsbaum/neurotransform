@@ -3,11 +3,26 @@
 \name{adjoint}
 \alias{adjoint}
 \alias{adjoint,Morphism-method}
+\alias{adjoint,IdentityMorphism-method}
+\alias{adjoint,Affine3DMorphism-method}
+\alias{adjoint,Warp3DMorphism-method}
+\alias{adjoint,VolToSurfMorphism-method}
+\alias{adjoint,SurfToSurfMorphism-method}
 \title{Get adjoint (generalized inverse)}
 \usage{
 adjoint(object, ...)
 
 \S4method{adjoint}{Morphism}(object, ...)
+
+\S4method{adjoint}{IdentityMorphism}(object, ...)
+
+\S4method{adjoint}{Affine3DMorphism}(object, ...)
+
+\S4method{adjoint}{Warp3DMorphism}(object, ...)
+
+\S4method{adjoint}{VolToSurfMorphism}(object, ...)
+
+\S4method{adjoint}{SurfToSurfMorphism}(object, ...)
 }
 \arguments{
 \item{object}{A Morphism object}
@@ -18,7 +33,9 @@ adjoint(object, ...)
 Adjoint morphism or error if not available
 }
 \description{
-Returns an adjoint morphism for non-invertible transforms (e.g., VolToSurf).
-The adjoint is mathematically defined as the transpose operator at the
-projector level, but exposed here for convenience.
+Returns an adjoint morphism when defined.
+}
+\details{
+For invertible morphisms, \code{adjoint()} is defined and equals \code{invert()}.
+For other morphisms, \code{adjoint()} may not be implemented and will error.
 }

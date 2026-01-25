@@ -70,11 +70,11 @@ test_that("is_invertible checks inverse_type correctly", {
   w_no_inv <- Warp3DMorphism("a", "b", "fwd.nii", warp_type = "ants")
   expect_false(is_invertible(w_no_inv))
 
-  # Warp with inverse_path has "provided" not "exact"
+  # Warp with inverse_path has an available inverse (approximate)
   w_inv <- Warp3DMorphism("a", "b", "fwd.nii", warp_type = "ants", inverse_path = "inv.nii")
-  expect_false(is_invertible(w_inv))  # "provided" != "exact"
+  expect_true(is_invertible(w_inv))
 
-  # VolToSurfMorphism has adjoint
+  # VolToSurfMorphism has no geometric inverse
   v2s <- VolToSurfMorphism("a", "b", method = "trilinear")
   expect_false(is_invertible(v2s))
 })
@@ -85,14 +85,21 @@ test_that("is_invertible errors on non-Morphism", {
 })
 
 test_that("has_adjoint checks inverse_type correctly", {
-  # VolToSurfMorphism has adjoint
+  # VolToSurfMorphism exposes an adjoint as a backprojection operator
   v2s <- VolToSurfMorphism("a", "b", method = "trilinear")
   expect_true(has_adjoint(v2s))
 
-  # Other types don't have adjoint
-  expect_false(has_adjoint(IdentityMorphism("a")))
-  expect_false(has_adjoint(Affine3DMorphism("a", "b", diag(4))))
+  # Linear/invertible morphisms do have adjoint (equal to inverse)
+  expect_true(has_adjoint(IdentityMorphism("a")))
+  expect_true(has_adjoint(Affine3DMorphism("a", "b", diag(4))))
+
+  # Warps without inverse_path do not
   expect_false(has_adjoint(Warp3DMorphism("a", "b", "x.nii", warp_type = "ants")))
+
+  # Warps with inverse_path do
+  w_inv <- Warp3DMorphism("a", "b", "fwd.nii", warp_type = "ants", inverse_path = "inv.nii")
+  expect_true(has_adjoint(w_inv))
+
   expect_false(has_adjoint(SurfToSurfMorphism("a", "b", method = "sphere")))
 })
 

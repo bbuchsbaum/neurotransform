@@ -12,13 +12,13 @@ test_that("AFNI nonlinear warp resample overlaps reference (forward)", {
   skip_if_not(file.exists(warp_path))
   skip_if_not(file.exists(ref_path))
 
-  src <- read_image(src_path)
-  tgt <- read_image(tgt_path)
-  ref <- read_image(ref_path)
+  src <- suppressWarnings(read_image(src_path))
+  tgt <- suppressWarnings(read_image(tgt_path))
+  ref <- suppressWarnings(read_image(ref_path))
 
   morph <- Warp3DMorphism("src", "tgt", warp_path = warp_path, warp_type = "afni")
 
-  out <- resample_to(src, target = tgt, transform = morph, method = "linear")
+  out <- suppressWarnings(resample_to(src, target = tgt, transform = morph, method = "linear"))
   out_arr <- as.array(out); if (length(dim(out_arr)) == 4) out_arr <- out_arr[, , , 1, drop = TRUE]
   ref_arr <- as.array(ref); if (length(dim(ref_arr)) == 4) ref_arr <- ref_arr[, , , 1, drop = TRUE]
 
@@ -51,8 +51,8 @@ test_that("AFNI nonlinear warp transforms coordinates within expected range", {
   ), ncol = 3, byrow = TRUE)
 
   # Both warps should transform coordinates
-  warped_fwd <- transform(fwd_morph, test_coords)
-  warped_inv <- transform(inv_morph, test_coords)
+  warped_fwd <- suppressWarnings(transform(fwd_morph, test_coords))
+  warped_inv <- suppressWarnings(transform(inv_morph, test_coords))
 
   # Warped coordinates should be finite
   expect_true(all(is.finite(warped_fwd)))

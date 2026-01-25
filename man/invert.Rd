@@ -25,7 +25,7 @@ invert(object)
 Inverted morphism
 }
 \description{
-Returns the inverse morphism if available (inverse_type == "exact" or "provided").
+Returns the inverse morphism if available (inverse_type == "exact" or "approximate").
 For morphisms with approximate or adjoint inverses, use adjoint() instead.
 }
 \examples{

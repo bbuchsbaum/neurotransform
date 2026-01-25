@@ -3,3 +3,8 @@
 ^\.Rproj\.user$
 ^neurotransform\.Rcheck$
 ^.*\.tar\.gz$
+^\.github$
+^src/.*\\.(o|so|gcno|gcda)$
+^inst/extdata/afni$
+^inst/extdata/chris$
+^inst/extdata/demo1$

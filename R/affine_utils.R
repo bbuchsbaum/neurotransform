@@ -193,8 +193,8 @@ write_affine_matrix_txt <- function(matrix, file, type = NULL, comment = TRUE) {
   if (!is.null(type) && isTRUE(comment)) {
     writeLines(sprintf("# affineType: %s", type), con = con)
   }
-  write.table(format(matrix, digits = 10), file = con,
-              row.names = FALSE, col.names = FALSE, quote = FALSE)
+  utils::write.table(format(matrix, digits = 10), file = con,
+                     row.names = FALSE, col.names = FALSE, quote = FALSE)
   invisible(file)
 }
 

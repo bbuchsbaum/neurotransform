@@ -39,7 +39,7 @@ in A (pullback semantics). Data flows opposite: from A to B.
 
 \item{\code{hash}}{Stable hash of morphism}
 
-\item{\code{inverse_type}}{One of "exact", "provided", "approximate", "adjoint", "none"}
+\item{\code{inverse_type}}{One of "exact", "approximate", "adjoint", "none"}
 
 \item{\code{inverse_quality}}{Numeric in range 0 to 1, optional confidence for inverse}
 

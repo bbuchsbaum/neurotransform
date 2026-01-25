@@ -8,6 +8,7 @@ test_that("afni_aff12_to_ras flips Z axis correctly", {
 
 test_that("afni_load_affine_morphism reads and converts aff12", {
   path <- system.file("extdata/afni/anatQQ.FT.aff12.1D", package = "neurotransform")
+  skip_if_not(file.exists(path))
   m <- afni_load_affine_morphism("src", "tgt", path, direction = "source_to_target")
   expect_s4_class(m, "Affine3DMorphism")
   expect_equal(source_of(m), "src")

@@ -5,8 +5,8 @@
 \title{Warp Field Loader Registry}
 \description{
 Pluggable loader system for warp displacement fields. Provides a registry
-for different file formats (NIfTI via RNifti, AFNI, FSL, etc.) with
-morphism-level caching.
+for different file formats (NIfTI via neuroim2, AFNI, FSL, ANTs H5)
+with morphism-level caching.
 }
 \section{Loader Function Contract}{
 

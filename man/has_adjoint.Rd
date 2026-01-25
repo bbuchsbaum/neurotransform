@@ -13,5 +13,6 @@ has_adjoint(object)
 Logical
 }
 \description{
-Returns TRUE if inverse_type is "adjoint" (generalized inverse available).
+Returns TRUE if \code{adjoint()} is available for this morphism.
+For linear/invertible morphisms, the adjoint is the inverse.
 }

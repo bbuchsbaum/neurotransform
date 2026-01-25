@@ -43,7 +43,7 @@ NULL
 #' @slot coverage Optional mask/metadata for valid region
 #' @slot cost Numeric: cost/weight for graph traversal
 #' @slot hash Stable hash of morphism
-#' @slot inverse_type One of "exact", "provided", "approximate", "adjoint", "none"
+#' @slot inverse_type One of "exact", "approximate", "adjoint", "none"
 #' @slot inverse_quality Numeric in range 0 to 1, optional confidence for inverse
 #' @slot inverse_method Description/label for inverse strategy
 #' @slot provenance List: metadata about the transform origin

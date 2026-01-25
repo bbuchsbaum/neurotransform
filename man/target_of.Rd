@@ -2,12 +2,15 @@
 % Please edit documentation in R/all_generic.R, R/morphism.R
 \name{target_of}
 \alias{target_of}
+\alias{target_domain}
 \alias{target_of,Morphism-method}
 \alias{target_domain,Morphism-method}
 \alias{target_of,MorphismPath-method}
 \title{Get target domain of a morphism}
 \usage{
 target_of(object)
+
+target_domain(object)
 
 \S4method{target_of}{Morphism}(object)
 

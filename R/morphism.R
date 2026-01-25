@@ -74,7 +74,7 @@ is_warp_morphism <- function(object) {
 
 #' Check if morphism is exactly invertible
 #'
-#' Returns TRUE only if inverse_type is "exact" (mathematically perfect inverse).
+#' Returns TRUE only if a geometric inverse is available via \code{invert()}.
 #'
 #' @param object A Morphism object
 #' @return Logical
@@ -84,19 +84,20 @@ is_warp_morphism <- function(object) {
 #' is_invertible(aff)  # TRUE
 is_invertible <- function(object) {
   if (!methods::is(object, "Morphism")) stop("object must be a Morphism")
-  identical(object@inverse_type, "exact")
+  object@inverse_type %in% c("exact", "approximate")
 }
 
 #' Check if morphism has an adjoint
 #'
-#' Returns TRUE if inverse_type is "adjoint" (generalized inverse available).
+#' Returns TRUE if \code{adjoint()} is available for this morphism.
+#' For linear/invertible morphisms, the adjoint is the inverse.
 #'
 #' @param object A Morphism object
 #' @return Logical
 #' @export
 has_adjoint <- function(object) {
   if (!methods::is(object, "Morphism")) stop("object must be a Morphism")
-  identical(object@inverse_type, "adjoint")
+  object@inverse_type %in% c("exact", "approximate", "adjoint")
 }
 
 # =============================================================================
@@ -211,12 +212,13 @@ Warp3DMorphism <- function(source, target, warp_path,
 
   # Determine inverse properties
   if (nzchar(inverse_path)) {
+    inv_type <- "approximate"
     if (warp_type == "ants") {
-      inv_type <- "provided"; inv_quality <- 0.95; inv_method <- "inverse_warp"
+      inv_quality <- 0.95; inv_method <- "inverse_warp"
     } else if (warp_type == "fsl") {
-      inv_type <- "approximate"; inv_quality <- 0.8; inv_method <- "invwarp"
+      inv_quality <- 0.8; inv_method <- "invwarp"
     } else {
-      inv_type <- "approximate"; inv_quality <- 0.85; inv_method <- "inverse_warp"
+      inv_quality <- 0.85; inv_method <- "inverse_warp"
     }
   } else {
     inv_type <- "none"; inv_quality <- NA_real_; inv_method <- ""
@@ -296,8 +298,8 @@ VolToSurfMorphism <- function(source, target,
            n_ribbon_samples = as.integer(n_ribbon_samples),
            hash = "",
            inverse_type = "adjoint",
-           inverse_quality = 0,
-           inverse_method = "transpose")
+           inverse_quality = 1.0,
+           inverse_method = "backprojection")
   m@hash <- morphism_hash(m)
   m
 }
@@ -311,6 +313,15 @@ VolToSurfMorphism <- function(source, target,
 #' @param method Registration method: "sphere", "area", "sulc"
 #' @param source_sphere Path to source sphere surface
 #' @param target_sphere Path to target sphere surface
+#' @param mapping How to map target points onto the source mesh.
+#'   \code{"nearest"} maps by nearest target vertex (index correspondence);
+#'   \code{"barycentric"} maps using barycentric weights on target faces.
+#' @param source_vertices Optional V x 3 numeric matrix of source mesh vertices.
+#'   Required for \code{mapping="nearest"} and \code{mapping="barycentric"}.
+#' @param target_vertices Optional V x 3 numeric matrix of target mesh vertices.
+#'   Required for \code{mapping="nearest"} and \code{mapping="barycentric"}.
+#' @param faces Optional F x 3 integer matrix of triangle vertex indices (0- or 1-based).
+#'   Required for \code{mapping="barycentric"}.
 #' @param cost Path cost (default 1.0)
 #' @param method_tag Method tag (default "anatomical")
 #' @return SurfToSurfMorphism object
@@ -318,17 +329,108 @@ VolToSurfMorphism <- function(source, target,
 SurfToSurfMorphism <- function(source, target,
                                method = c("sphere", "area", "sulc"),
                                source_sphere = "", target_sphere = "",
+                               mapping = c("nearest", "barycentric"),
+                               source_vertices = NULL,
+                               target_vertices = NULL,
+                               faces = NULL,
                                cost = 1.0, method_tag = "anatomical") {
   method <- match.arg(method)
+  mapping <- match.arg(mapping)
   if (!is.character(source) || length(source) != 1L) stop("source must be a single character")
   if (!is.character(target) || length(target) != 1L) stop("target must be a single character")
+
+  have_src <- !is.null(source_vertices)
+  have_tgt <- !is.null(target_vertices)
+  have_vertices <- have_src || have_tgt
+  if (have_vertices && !(have_src && have_tgt)) {
+    stop("If supplying vertices, provide both source_vertices and target_vertices.")
+  }
+
+  if (have_src) {
+    if (!is.matrix(source_vertices) || ncol(source_vertices) != 3) {
+      stop("source_vertices must be a matrix with 3 columns")
+    }
+    if (!is.numeric(source_vertices) || nrow(source_vertices) < 1L) {
+      stop("source_vertices must be a non-empty numeric matrix")
+    }
+    if (!all(is.finite(source_vertices))) {
+      stop("source_vertices must contain only finite values")
+    }
+  }
+
+  if (have_tgt) {
+    if (!is.matrix(target_vertices) || ncol(target_vertices) != 3) {
+      stop("target_vertices must be a matrix with 3 columns")
+    }
+    if (!is.numeric(target_vertices) || nrow(target_vertices) < 1L) {
+      stop("target_vertices must be a non-empty numeric matrix")
+    }
+    if (!all(is.finite(target_vertices))) {
+      stop("target_vertices must contain only finite values")
+    }
+  }
+
+  if (have_src && have_tgt && nrow(source_vertices) != nrow(target_vertices)) {
+    stop("source_vertices and target_vertices must have the same number of rows (vertex correspondence by index).")
+  }
+
+  if (identical(mapping, "barycentric") && is.null(faces)) {
+    stop("SurfToSurfMorphism mapping='barycentric' requires faces")
+  }
+
+  if (!is.null(faces)) {
+    if (!is.matrix(faces) || ncol(faces) != 3) {
+      stop("faces must be a matrix with 3 columns (triangles)")
+    }
+    if (!is.numeric(faces)) {
+      stop("faces must be numeric/integer vertex indices")
+    }
+    if (!all(is.finite(faces))) {
+      stop("faces must contain only finite values")
+    }
+    if (any(abs(faces - round(faces)) > 1e-8)) {
+      stop("faces must contain integer vertex indices")
+    }
+    faces_int <- matrix(as.integer(round(faces)), ncol = 3)
+    if (any(is.na(faces_int))) stop("faces must not contain NA")
+    if (any(faces_int < 0L)) stop("faces must not contain negative indices")
+    if (any(apply(faces_int, 1L, function(x) length(unique(x)) != 3L))) {
+      stop("faces rows must reference 3 distinct vertices")
+    }
+    if (!is.null(target_vertices)) {
+      nv <- nrow(target_vertices)
+      if (min(faces_int) == 0L) {
+        if (max(faces_int) >= nv) stop("0-based faces indices must be in [0, n_vertices-1]")
+      } else if (min(faces_int) >= 1L) {
+        if (max(faces_int) > nv) stop("1-based faces indices must be in [1, n_vertices]")
+      } else {
+        stop("faces must be 0-based (min==0) or 1-based (min>=1)")
+      }
+    }
+    faces <- faces_int
+  }
+
+  faces0 <- NULL
+  if (!is.null(faces)) {
+    faces0 <- faces
+    storage.mode(faces0) <- "integer"
+    if (min(faces0, na.rm = TRUE) >= 1L) {
+      faces0 <- faces0 - 1L
+    }
+  }
 
   m <- methods::new("SurfToSurfMorphism",
            id = paste0("s2s_", source, "_", target),
            source = source,
            target = target,
            kind = "surf2surf",
-           params = list(method = method),
+           params = list(
+             method = method,
+             mapping = mapping,
+             source_vertices = source_vertices,
+             target_vertices = target_vertices,
+             faces0 = faces0
+           ),
            inverse_params = list(),
            coverage = 1.0,
            cost = cost,
@@ -337,9 +439,9 @@ SurfToSurfMorphism <- function(source, target,
            source_sphere = source_sphere,
            target_sphere = target_sphere,
            hash = "",
-           inverse_type = "provided",
-           inverse_quality = 0.95,
-           inverse_method = "sphere_inverse")
+           inverse_type = "none",
+           inverse_quality = NA_real_,
+           inverse_method = "")
   m@hash <- morphism_hash(m)
   m
 }
@@ -415,6 +517,43 @@ setMethod("transform", "VolToSurfMorphism", function(morphism, coords) {
     return(morphism@params$mid_coords)
   }
   coords
+})
+
+#' @rdname transform
+#' @export
+setMethod("transform", "SurfToSurfMorphism", function(morphism, coords) {
+  src_v <- morphism@params$source_vertices
+  tgt_v <- morphism@params$target_vertices
+  faces0 <- morphism@params$faces0
+  mapping <- morphism@params$mapping %||% "nearest"
+
+  if (is.null(src_v) || is.null(tgt_v)) {
+    stop("SurfToSurfMorphism requires source_vertices and target_vertices (matrices Vx3) in the constructor.")
+  }
+  if (!is.matrix(coords) || ncol(coords) != 3 || !is.numeric(coords)) {
+    stop("coords must be a numeric matrix with 3 columns")
+  }
+  if (!all(is.finite(coords))) stop("coords must contain only finite values")
+
+  if (identical(mapping, "nearest")) {
+    idx <- cpp_nearest_vertex(coords, tgt_v)
+    return(src_v[idx, , drop = FALSE])
+  }
+
+  if (is.null(faces0)) {
+    stop("SurfToSurfMorphism mapping='barycentric' requires faces")
+  }
+
+  w <- cpp_barycentric_weights(coords, tgt_v, faces0)
+  out <- matrix(0, nrow = nrow(coords), ncol = 3)
+  if (length(w$rows) == 0) return(out)
+
+  for (k in 1:3) {
+    rs <- rowsum(src_v[w$cols, k, drop = TRUE] * w$vals,
+                 group = w$rows, reorder = FALSE)
+    out[as.integer(rownames(rs)), k] <- rs[, 1]
+  }
+  out
 })
 
 #' @rdname transform
@@ -567,7 +706,56 @@ setMethod("invert", "Warp3DMorphism", function(object) {
 #' @rdname adjoint
 #' @export
 setMethod("adjoint", "Morphism", function(object, ...) {
-  stop("Adjoint is defined at the projector level (use projector transpose for VolToSurf)")
+  stop("Adjoint not implemented for morphism type: ", class(object)[1])
+})
+
+#' @rdname adjoint
+#' @export
+setMethod("adjoint", "IdentityMorphism", function(object, ...) {
+  object
+})
+
+#' @rdname adjoint
+#' @export
+setMethod("adjoint", "Affine3DMorphism", function(object, ...) {
+  invert(object)
+})
+
+#' @rdname adjoint
+#' @export
+setMethod("adjoint", "Warp3DMorphism", function(object, ...) {
+  invert(object)
+})
+
+#' @rdname adjoint
+#' @export
+setMethod("adjoint", "VolToSurfMorphism", function(object, ...) {
+  args <- list(...)
+  grid <- args$grid %||% args$source_grid
+  surface_coords <- args$surface_coords %||% NULL
+  method <- args$method %||% "linear"
+  outside <- args$outside %||% 0
+
+  if (is.null(grid) || !inherits(grid, "Grid")) {
+    stop("adjoint(VolToSurfMorphism) requires a Grid via grid= (or source_grid=).")
+  }
+
+  function(surface_values) {
+    backproject_surface_to_volume(
+      surface_values = surface_values,
+      morphism = object,
+      grid = grid,
+      surface_coords = surface_coords,
+      method = method,
+      outside = outside
+    )
+  }
+})
+
+#' @rdname adjoint
+#' @export
+setMethod("adjoint", "SurfToSurfMorphism", function(object, ...) {
+  stop("Adjoint is not implemented for SurfToSurfMorphism.")
 })
 
 # =============================================================================

@@ -62,6 +62,7 @@ setMethod("show", "JacobianField", function(object) {
 
 #' Extract single Jacobian matrix or subset
 #' @rdname JacobianField-class
+#' @aliases [,JacobianField,numeric-method
 #' @export
 setMethod("[", signature("JacobianField", "numeric"), function(x, i, j, ..., drop = TRUE) {
   if (missing(j)) {
@@ -93,17 +94,30 @@ setMethod("det", "JacobianField", function(x, ...) {
 #' @rdname JacobianField-class
 #' @export
 setMethod("solve", signature("JacobianField", "missing"), function(a, b, ...) {
+  invert_jacobian_field(a)
+})
+
+# Internal helper used by both S4 and S3 solve dispatch.
+invert_jacobian_field <- function(a) {
   n <- length(a)
   inv_values <- array(NA_real_, dim = dim(a@values))
   for (i in seq_len(n)) {
-    inv_values[i, , ] <- solve(a@values[i, , ])
+    inv_values[i, , ] <- base::solve(a@values[i, , ])
   }
   new("JacobianField",
       values = inv_values,
       coords = a@coords,
       mode = if (a@mode == "pullback") "pushforward" else "pullback",
       morphism_hash = a@morphism_hash)
-})
+}
+
+#' @noRd
+#' @method solve JacobianField
+#' @export
+solve.JacobianField <- function(a, b, ...) {
+  if (!missing(b)) stop("solve(JacobianField, b) is not supported")
+  invert_jacobian_field(a)
+}
 
 # =============================================================================
 # JACOBIAN GENERIC

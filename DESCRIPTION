@@ -4,6 +4,8 @@ Version: 0.1.0
 Authors@R:
     person("Brad", "Buchsbaum", , "brad.buchsbaum@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-8268-1465"))
+Author: Brad Buchsbaum [aut, cre]
+Maintainer: Brad Buchsbaum <brad.buchsbaum@gmail.com>
 Description: A self-contained, dependency-light library for geometric
     transforms in neuroimaging. Provides affine and nonlinear (warp)
     mappings between coordinate systems, plus volume-to-surface mapping
@@ -22,7 +24,8 @@ Imports:
 Suggests:
     RNifti,
     testthat (>= 3.0.0),
-    Matrix
+    Matrix,
+    hdf5r
 LinkingTo:
     Rcpp,
     RcppArmadillo

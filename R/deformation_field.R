@@ -51,6 +51,7 @@ jacobian_det_field <- function(morphism, grid, log = FALSE) {
   array(dets, dim = grid@dims)
 }
 
+#' @rdname jacobian
 #' @export
 setMethod("jacobian", signature("DeformationField", "missing"),
           function(morphism, coords, mode = c("pullback", "pushforward")) {

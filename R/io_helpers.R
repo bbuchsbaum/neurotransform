@@ -178,7 +178,7 @@ ants_h5_morphism <- function(path, source = "source", target = "target", apply_a
   aff_mat <- NULL
   # Peek at embedded affine
   if (exists("load_warp_ants_h5", envir = asNamespace("neurotransform"))) {
-    info <- neurotransform:::load_warp_ants_h5(path)
+    info <- load_warp_ants_h5(path)
     aff_mat <- info$affine
   }
 
