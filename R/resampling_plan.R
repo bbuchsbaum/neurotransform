@@ -65,7 +65,10 @@ make_resampling_plan <- function(morphism, source_grid, target_grid,
 
   path <- if (is(morphism, "MorphismPath")) morphism@morphisms else list(morphism)
   # Attempt full flattening: build steps list for affine/warp sequence
-  can_flatten <- all(vapply(path, function(m) morphism_kind(m) %in% c("affine3d", "warp3d"), logical(1)))
+  can_flatten <- all(vapply(path, function(m) morphism_kind(m) %in% c("affine3d", "warp3d"), logical(1))) &&
+    !any(vapply(path, function(m) is(m, "Warp3DMorphism") &&
+                  (identical(m@warp_type, "fsl_coef") || identical(m@warp_type, "ants_h5")),
+                logical(1)))
   if (can_flatten) {
     steps <- vector("list", length(path))
     for (i in seq_along(path)) {

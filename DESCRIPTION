@@ -25,7 +25,10 @@ Suggests:
     RNifti,
     testthat (>= 3.0.0),
     Matrix,
-    hdf5r
+    hdf5r,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 LinkingTo:
     Rcpp,
     RcppArmadillo
@@ -40,6 +43,9 @@ Collate:
     'all_class.R'
     'all_generic.R'
     'coordinates.R'
+    'transform_io.R'
+    'lta_io.R'
+    'x5_io.R'
     'io_helpers.R'
     'warp_loader.R'
     'morphism.R'
@@ -53,3 +59,4 @@ Collate:
     'affine_utils.R'
     'deformation_field.R'
     'resampling_plan.R'
+    'surface_resampling.R'

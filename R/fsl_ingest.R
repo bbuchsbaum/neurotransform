@@ -19,38 +19,50 @@ fsl_spacing_from_affine <- function(affine) {
 #' Build voxel-to-FSL scaling matrix
 #'
 #' @param affine 4x4 voxel-to-world affine
+#' @param dim Optional image dimensions (required to apply FSL handedness swap)
 #' @return 4x4 scaling matrix
 #' @keywords internal
-fsl_vox_to_fsl <- function(affine) {
+fsl_vox_to_fsl <- function(affine, dim = NULL) {
+  stopifnot(is.matrix(affine), all(dim(affine) == 4))
   sp <- fsl_spacing_from_affine(affine)
-  diag(c(sp, 1))
+  swp <- diag(4)
+  # Preserve historical behavior unless dimensions are explicitly provided.
+  # Handedness swap in FSL needs image extent to set the x-offset correctly.
+  if (!is.null(dim) && det(affine[1:3, 1:3, drop = FALSE]) > 0) {
+    swp[1, 1] <- -1
+    swp[1, 4] <- (as.integer(dim)[1] - 1) * sp[1]
+  }
+  swp %*% diag(c(sp, 1))
 }
 
 #' Build FSL-to-voxel scaling matrix
 #'
 #' @param affine 4x4 voxel-to-world affine
+#' @param dim Optional image dimensions (required to apply FSL handedness swap)
 #' @return 4x4 inverse scaling matrix
 #' @keywords internal
-fsl_fsl_to_vox <- function(affine) {
-  solve(fsl_vox_to_fsl(affine))
+fsl_fsl_to_vox <- function(affine, dim = NULL) {
+  solve(fsl_vox_to_fsl(affine, dim = dim))
 }
 
 #' Convert world coords to FSL coords
 #'
 #' @param affine 4x4 voxel-to-world affine
+#' @param dim Optional image dimensions
 #' @return 4x4 world-to-FSL transform
 #' @keywords internal
-fsl_world_to_fsl <- function(affine) {
-  fsl_vox_to_fsl(affine) %*% invert_affine(affine)
+fsl_world_to_fsl <- function(affine, dim = NULL) {
+  fsl_vox_to_fsl(affine, dim = dim) %*% invert_affine(affine)
 }
 
 #' Convert FSL coords to world coords
 #'
 #' @param affine 4x4 voxel-to-world affine
+#' @param dim Optional image dimensions
 #' @return 4x4 FSL-to-world transform
 #' @keywords internal
-fsl_fsl_to_world <- function(affine) {
-  affine %*% fsl_fsl_to_vox(affine)
+fsl_fsl_to_world <- function(affine, dim = NULL) {
+  affine %*% fsl_fsl_to_vox(affine, dim = dim)
 }
 
 #' Convert FLIRT matrix to internal affine
@@ -61,6 +73,8 @@ fsl_fsl_to_world <- function(affine) {
 #' @param flirt_mat 4x4 FLIRT matrix
 #' @param source_affine 4x4 voxel-to-world for source image
 #' @param ref_affine 4x4 voxel-to-world for reference image
+#' @param source_dim Optional source image dimensions (needed for handedness swap)
+#' @param ref_dim Optional reference image dimensions (needed for handedness swap)
 #' @return 4x4 internal affine (ref_world -> src_world)
 #' @export
 #' @examples
@@ -70,12 +84,14 @@ fsl_fsl_to_world <- function(affine) {
 #' ref_aff <- diag(4)  # from reference image header
 #' internal <- fsl_flirt_to_internal_affine(flirt_mat, src_aff, ref_aff)
 #' }
-fsl_flirt_to_internal_affine <- function(flirt_mat, source_affine, ref_affine) {
+fsl_flirt_to_internal_affine <- function(flirt_mat, source_affine, ref_affine,
+                                         source_dim = NULL, ref_dim = NULL) {
   if (!is.matrix(flirt_mat) || any(dim(flirt_mat) != 4)) {
     stop("FLIRT matrix must be 4x4")
   }
-  W_ref_to_fsl <- fsl_world_to_fsl(ref_affine)
-  W_fsl_to_src <- fsl_fsl_to_world(source_affine)
+  W_ref_to_fsl <- fsl_world_to_fsl(ref_affine, dim = ref_dim)
+  W_fsl_to_src <- fsl_fsl_to_world(source_affine, dim = source_dim)
+  # FLIRT matrix maps source_fsl -> ref_fsl. Pullback needs inverse.
   phi <- W_fsl_to_src %*% invert_affine(flirt_mat) %*% W_ref_to_fsl
   phi
 }

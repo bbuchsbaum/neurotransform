@@ -21,6 +21,18 @@ inline double cubic_interp_1d(const double* vals, double t) {
          vals[2]*cubic_weight(t-1) + vals[3]*cubic_weight(t-2);
 }
 
+// Cubic B-spline basis (compact support [-2, 2]).
+inline double bspline3_weight(double d) {
+  double ad = std::abs(d);
+  if (ad < 1.0) {
+    return (4.0 - 6.0 * ad * ad + 3.0 * ad * ad * ad) / 6.0;
+  } else if (ad < 2.0) {
+    double t = 2.0 - ad;
+    return (t * t * t) / 6.0;
+  }
+  return 0.0;
+}
+
 // Trilinear sample displacement field (x,y,z,3) given voxel coords (0-based)
 inline bool sample_disp(const Rcpp::NumericVector& field, const Rcpp::IntegerVector& dim,
                         double x, double y, double z, double* out) {
@@ -91,6 +103,54 @@ inline bool sample_disp_cubic(const Rcpp::NumericVector& field, const Rcpp::Inte
     out[c] = cubic_interp_1d(tmp, fz);
   }
   return true;
+}
+
+// Evaluate displacement from FNIRT B-spline coefficients at control-grid IJK.
+inline bool sample_bspline_coeff_disp(const Rcpp::NumericVector& coeff,
+                                      const Rcpp::IntegerVector& dim,
+                                      double x, double y, double z,
+                                      double* out) {
+  int nx = dim[0], ny = dim[1], nz = dim[2];
+  // Beyond compact support of edge knots -> effectively zero displacement.
+  if (x < -2.0 || y < -2.0 || z < -2.0 ||
+      x > (nx - 1) + 2.0 || y > (ny - 1) + 2.0 || z > (nz - 1) + 2.0) {
+    out[0] = out[1] = out[2] = 0.0;
+    return false;
+  }
+
+  int sx = static_cast<int>(std::floor(x)) - 1;
+  int sy = static_cast<int>(std::floor(y)) - 1;
+  int sz = static_cast<int>(std::floor(z)) - 1;
+
+  double acc0 = 0.0, acc1 = 0.0, acc2 = 0.0;
+  double wsum = 0.0;
+  for (int kz = sz; kz <= sz + 3; ++kz) {
+    double wz = bspline3_weight(z - kz);
+    if (wz == 0.0) continue;
+    if (kz < 0 || kz >= nz) continue;
+    for (int ky = sy; ky <= sy + 3; ++ky) {
+      double wy = bspline3_weight(y - ky);
+      if (wy == 0.0) continue;
+      if (ky < 0 || ky >= ny) continue;
+      for (int kx = sx; kx <= sx + 3; ++kx) {
+        double wx = bspline3_weight(x - kx);
+        if (wx == 0.0) continue;
+        if (kx < 0 || kx >= nx) continue;
+
+        double w = wx * wy * wz;
+        int base = ((kz * ny + ky) * nx + kx) * 3;
+        acc0 += w * coeff[base];
+        acc1 += w * coeff[base + 1];
+        acc2 += w * coeff[base + 2];
+        wsum += w;
+      }
+    }
+  }
+
+  out[0] = acc0;
+  out[1] = acc1;
+  out[2] = acc2;
+  return wsum > 0.0;
 }
 
 //' Apply warp displacement field to coordinates
@@ -167,6 +227,46 @@ Rcpp::NumericMatrix cpp_apply_warp_field_cubic(const Rcpp::NumericMatrix& coords
       out(i,2) = NA_REAL;
     }
   }
+  return out;
+}
+
+//' Apply FNIRT B-spline coefficient field to coordinates
+//'
+//' Evaluates a cubic tensor-product B-spline coefficient field at query
+//' coordinates in world space, returning transformed coordinates.
+//'
+//' @param coords Numeric matrix (N x 3) world coordinates
+//' @param coeff Numeric vector of coefficients (flattened interleaved x,y,z)
+//' @param dim Integer vector (X, Y, Z) control-grid dimensions
+//' @param world_to_ctrl 4x4 world-to-control-grid affine
+//' @return Numeric matrix (N x 3) transformed coordinates
+//' @keywords internal
+// [[Rcpp::export]]
+Rcpp::NumericMatrix cpp_apply_bspline_coeff_field(const Rcpp::NumericMatrix& coords,
+                                                  const Rcpp::NumericVector& coeff,
+                                                  const Rcpp::IntegerVector& dim,
+                                                  const Rcpp::NumericMatrix& world_to_ctrl) {
+  int n = coords.nrow();
+  Rcpp::NumericMatrix out(n, 3);
+
+#ifdef _OPENMP
+  #pragma omp parallel for
+#endif
+  for (int i = 0; i < n; ++i) {
+    double x = coords(i, 0), y = coords(i, 1), z = coords(i, 2);
+    double hom[4] = {x, y, z, 1.0};
+    double cijk[4] = {0, 0, 0, 0};
+    for (int r = 0; r < 4; ++r) {
+      for (int c = 0; c < 4; ++c) cijk[r] += world_to_ctrl(r, c) * hom[c];
+    }
+
+    double disp[3];
+    sample_bspline_coeff_disp(coeff, dim, cijk[0], cijk[1], cijk[2], disp);
+    out(i, 0) = x + disp[0];
+    out(i, 1) = y + disp[1];
+    out(i, 2) = z + disp[2];
+  }
+
   return out;
 }
 

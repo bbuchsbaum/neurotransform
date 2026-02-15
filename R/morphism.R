@@ -183,7 +183,7 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @param source Source domain hash
 #' @param target Target domain hash
 #' @param warp_path Path to displacement field file
-#' @param warp_type One of "ants", "ants_h5", "fsl", "afni", "freesurfer"
+#' @param warp_type One of "ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense"
 #' @param inverse_path Path to inverse warp (optional)
 #' @param def_type Deformation type: "relative" (displacement) or "absolute" (coordinates)
 #' @param warp_method Interpolation method for warp field lookup: "linear" or "cubic"
@@ -194,7 +194,7 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @examples
 #' warp <- Warp3DMorphism("native", "mni", "path/to/warp.nii.gz")
 Warp3DMorphism <- function(source, target, warp_path,
-                           warp_type = c("ants", "ants_h5", "fsl", "afni", "freesurfer"),
+                           warp_type = c("ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense"),
                            inverse_path = "", def_type = NULL,
                            warp_method = c("linear", "cubic"),
                            cost = 1.5, method_tag = "anatomical") {
@@ -215,7 +215,7 @@ Warp3DMorphism <- function(source, target, warp_path,
     inv_type <- "approximate"
     if (warp_type == "ants") {
       inv_quality <- 0.95; inv_method <- "inverse_warp"
-    } else if (warp_type == "fsl") {
+    } else if (warp_type %in% c("fsl", "fsl_coef")) {
       inv_quality <- 0.8; inv_method <- "invwarp"
     } else {
       inv_quality <- 0.85; inv_method <- "inverse_warp"
@@ -338,6 +338,22 @@ SurfToSurfMorphism <- function(source, target,
   mapping <- match.arg(mapping)
   if (!is.character(source) || length(source) != 1L) stop("source must be a single character")
   if (!is.character(target) || length(target) != 1L) stop("target must be a single character")
+
+  # Accept neurosurf::SurfaceGeometry and other surface-like objects.
+  if (!is.null(source_vertices) && !is.matrix(source_vertices)) {
+    src_ref <- coerce_surface_reference(source_vertices, require_faces = FALSE)
+    source_vertices <- src_ref$vertices
+  }
+  if (!is.null(target_vertices) && !is.matrix(target_vertices)) {
+    tgt_ref <- coerce_surface_reference(
+      target_vertices,
+      require_faces = identical(mapping, "barycentric")
+    )
+    target_vertices <- tgt_ref$vertices
+    if (is.null(faces) && !is.null(tgt_ref$faces) && nrow(tgt_ref$faces) > 0L) {
+      faces <- tgt_ref$faces
+    }
+  }
 
   have_src <- !is.null(source_vertices)
   have_tgt <- !is.null(target_vertices)

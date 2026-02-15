@@ -228,6 +228,21 @@ cpp_apply_warp_field_cubic <- function(coords, field, dim, voxel_to_world) {
     .Call(`_neurotransform_cpp_apply_warp_field_cubic`, coords, field, dim, voxel_to_world)
 }
 
+#' Apply FNIRT B-spline coefficient field to coordinates
+#'
+#' Evaluates a cubic tensor-product B-spline coefficient field at query
+#' coordinates in world space, returning transformed coordinates.
+#'
+#' @param coords Numeric matrix (N x 3) world coordinates
+#' @param coeff Numeric vector of coefficients (flattened interleaved x,y,z)
+#' @param dim Integer vector (X, Y, Z) control-grid dimensions
+#' @param world_to_ctrl 4x4 world-to-control-grid affine
+#' @return Numeric matrix (N x 3) transformed coordinates
+#' @keywords internal
+cpp_apply_bspline_coeff_field <- function(coords, coeff, dim, world_to_ctrl) {
+    .Call(`_neurotransform_cpp_apply_bspline_coeff_field`, coords, coeff, dim, world_to_ctrl)
+}
+
 #' Compose two warp displacement fields
 #'
 #' Computes B then A composition for warp fields.

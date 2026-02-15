@@ -17,6 +17,11 @@ NULL
 # Internal registry environment
 .warp_loader_registry <- new.env(parent = emptyenv())
 
+.looks_like_coef_warp <- function(path) {
+  lower <- tolower(basename(path))
+  grepl("coef|coeff|warpcoef|fieldcoef", lower)
+}
+
 #' Default neuroim2 warp loader
 #'
 #' Loads a NIfTI displacement field using neuroim2 (DenseNeuroVec).
@@ -56,6 +61,46 @@ load_warp_neuroim2 <- function(path) {
     dim = as.integer(dim4[1:3]),
     world_to_vox = inv_aff,
     vox_to_world = vox_to_world
+  )
+}
+
+#' Default FSL coefficient warp loader
+#'
+#' Loads an FNIRT coefficient field as B-spline coefficients. This is not a
+#' dense displacement field and must be evaluated through the cubic B-spline
+#' basis at query coordinates.
+#'
+#' @param path Path to coefficient NIfTI file
+#' @return List with array, dim, world_to_vox, vox_to_world, mode
+#' @keywords internal
+load_warp_fsl_coef <- function(path) {
+  if (!file.exists(path)) stop("Coefficient warp file not found: ", path)
+
+  vol <- tryCatch(neuroim2::read_vec(path), error = function(e) NULL)
+  if (is.null(vol)) vol <- tryCatch(neuroim2::read_vol(path), error = function(e) NULL)
+  if (is.null(vol)) stop("Failed to read coefficient warp: ", path)
+
+  dim4 <- dim(vol)
+  if (length(dim4) < 4 || dim4[4] < 3) {
+    stop("Coefficient warp must be 4D with last dimension length >= 3")
+  }
+
+  raw <- as.array(vol)
+  nvox <- prod(dim4[1:3])
+  arr <- numeric(3 * nvox)
+  idx <- seq_len(nvox)
+  arr[3L * (idx - 1L) + 1L] <- as.numeric(raw[, , , 1])  # X coefficients
+  arr[3L * (idx - 1L) + 2L] <- as.numeric(raw[, , , 2])  # Y coefficients
+  arr[3L * (idx - 1L) + 3L] <- as.numeric(raw[, , , 3])  # Z coefficients
+
+  vox_to_world <- neuroim2::trans(vol)
+  inv_aff <- solve(vox_to_world)
+  list(
+    array = arr,
+    dim = as.integer(dim4[1:3]),
+    world_to_vox = inv_aff,
+    vox_to_world = vox_to_world,
+    mode = "bspline_coefficients"
   )
 }
 
@@ -246,13 +291,18 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
 
   # Resolve loader based on warp_type
   if (is.null(loader)) {
+    if (identical(morphism@warp_type, "fsl") && .looks_like_coef_warp(morphism@warp_path)) {
+      stop("Warp looks like an FNIRT coefficient field. Use warp_type='fsl_coef' (or read_transform(..., type='fsl_coef')).")
+    }
     default_loader_name <- switch(
       morphism@warp_type,
       "ants_h5" = "ants_h5",
       "ants" = "neuroim2",
       "fsl" = "neuroim2",
+      "fsl_coef" = "fsl_coef",
       "freesurfer" = "neuroim2",
       "afni" = "neuroim2",
+      "dense" = "neuroim2",
       "neuroim2"
     )
     if (!exists(default_loader_name, envir = .warp_loader_registry, inherits = FALSE)) {

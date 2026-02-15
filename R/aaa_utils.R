@@ -96,3 +96,119 @@ validate_numeric_vector <- function(x, len, name = "vector") {
   }
   TRUE
 }
+
+#' Coerce surface-like objects to vertex/face matrices
+#'
+#' Supports plain matrices, internal SurfaceMesh/SampledPoints, and optional
+#' neurosurf::SurfaceGeometry objects without requiring neurosurf as a hard
+#' dependency.
+#'
+#' @param x Surface-like object
+#' @param require_faces Logical; whether faces must be present
+#' @param apply_surf_to_world Logical; apply SurfaceGeometry surf_to_world
+#' @return List with \code{vertices}, \code{faces}, and \code{domain}
+#' @keywords internal
+coerce_surface_reference <- function(x, require_faces = FALSE, apply_surf_to_world = TRUE) {
+  if (is.matrix(x)) {
+    if (!is.numeric(x) || ncol(x) != 3L || !all(is.finite(x))) {
+      stop("Surface vertices must be a finite numeric matrix with 3 columns")
+    }
+    return(list(vertices = x, faces = NULL, domain = ""))
+  }
+
+  if (inherits(x, "SurfaceMesh")) {
+    return(list(vertices = x@coords, faces = x@faces, domain = x@domain %||% ""))
+  }
+  if (inherits(x, "SampledPoints")) {
+    return(list(vertices = x@coords, faces = NULL, domain = x@domain %||% ""))
+  }
+
+  if (inherits(x, "SurfaceGeometry")) {
+    verts <- NULL
+    fcs <- NULL
+    dom <- ""
+
+    # Fast path for standard S4 SurfaceGeometry internals.
+    if (isS4(x) && methods::.hasSlot(x, "mesh")) {
+      mesh <- methods::slot(x, "mesh")
+      if (is.list(mesh) && !is.null(mesh$vb)) {
+        verts <- t(mesh$vb[1:3, , drop = FALSE])
+      }
+      if (is.list(mesh) && !is.null(mesh$it)) {
+        fcs <- t(mesh$it)
+      }
+      if (isTRUE(apply_surf_to_world) && methods::.hasSlot(x, "surf_to_world") && !is.null(verts)) {
+        stw <- methods::slot(x, "surf_to_world")
+        if (is.matrix(stw) && identical(dim(stw), c(4L, 4L))) {
+          verts <- apply_affine(verts, stw)
+        }
+      }
+      if (methods::.hasSlot(x, "hemi") || methods::.hasSlot(x, "label")) {
+        hemi <- if (methods::.hasSlot(x, "hemi")) as.character(methods::slot(x, "hemi")) else ""
+        label <- if (methods::.hasSlot(x, "label")) as.character(methods::slot(x, "label")) else ""
+        dom <- compute_hash("SurfaceGeometry", hemi, label)
+      }
+    }
+
+    # Allow light-weight list-like SurfaceGeometry objects in tests/integration glue.
+    if (is.null(verts) && is.list(x) && !is.null(x$mesh)) {
+      mesh <- x$mesh
+      if (is.list(mesh) && !is.null(mesh$vb)) {
+        verts <- t(mesh$vb[1:3, , drop = FALSE])
+      }
+      if (is.list(mesh) && !is.null(mesh$it)) {
+        fcs <- t(mesh$it)
+      }
+      if (isTRUE(apply_surf_to_world) && !is.null(verts) &&
+          is.matrix(x$surf_to_world) && identical(dim(x$surf_to_world), c(4L, 4L))) {
+        verts <- apply_affine(verts, x$surf_to_world)
+      }
+      hemi <- as.character(x$hemi %||% "")
+      label <- as.character(x$label %||% "")
+      if (nzchar(hemi) || nzchar(label)) dom <- compute_hash("SurfaceGeometry", hemi, label)
+    }
+
+    # Fallback via neurosurf accessors if needed.
+    if ((is.null(verts) || (require_faces && is.null(fcs))) &&
+        requireNamespace("neurosurf", quietly = TRUE)) {
+      ns <- asNamespace("neurosurf")
+      if (is.null(verts) && exists("coords", envir = ns, inherits = FALSE)) {
+        verts <- get("coords", envir = ns)(x)
+      }
+      if (is.null(fcs) && exists("faces", envir = ns, inherits = FALSE)) {
+        fcs <- get("faces", envir = ns)(x)
+      }
+      if (isTRUE(apply_surf_to_world) && !is.null(verts) && exists("surf_to_world", envir = ns, inherits = FALSE)) {
+        stw <- tryCatch(get("surf_to_world", envir = ns)(x), error = function(e) NULL)
+        if (is.matrix(stw) && identical(dim(stw), c(4L, 4L))) {
+          verts <- apply_affine(verts, stw)
+        }
+      }
+    }
+
+    if (is.null(verts) || !is.matrix(verts) || ncol(verts) != 3L || !is.numeric(verts) || !all(is.finite(verts))) {
+      stop("Could not extract finite Nx3 vertex coordinates from SurfaceGeometry")
+    }
+
+    if (!is.null(fcs)) {
+      if (!is.matrix(fcs) || ncol(fcs) != 3L || !is.numeric(fcs) || !all(is.finite(fcs))) {
+        stop("Surface faces must be a finite numeric matrix with 3 columns")
+      }
+      f0 <- matrix(as.integer(round(fcs)), ncol = 3)
+      if (any(abs(fcs - f0) > 1e-8)) stop("Surface faces must be integer indices")
+      if (nrow(f0) > 0L && min(f0) >= 1L) f0 <- f0 - 1L
+      if (nrow(f0) > 0L && (min(f0) < 0L || max(f0) >= nrow(verts))) {
+        stop("Surface faces are out of bounds for extracted vertices")
+      }
+      fcs <- f0
+    }
+
+    if (isTRUE(require_faces) && (is.null(fcs) || nrow(fcs) == 0L)) {
+      stop("SurfaceGeometry does not contain usable triangle faces")
+    }
+
+    return(list(vertices = verts, faces = fcs, domain = dom))
+  }
+
+  stop("Unsupported surface reference type: ", paste(class(x), collapse = "/"))
+}

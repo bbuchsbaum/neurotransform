@@ -136,6 +136,42 @@ test_that("read_transform auto-detects NIfTI as ANTs type", {
   expect_s4_class(result, "Warp3DMorphism")
 })
 
+test_that("read_transform auto-detects text matrices as linear affines", {
+  tmp <- tempfile(fileext = ".mat")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(2, -3, 5)
+  write_affine_matrix_txt(A, tmp)
+
+  result <- read_transform(tmp, source = "src", target = "tgt")
+  expect_s4_class(result, "Affine3DMorphism")
+  expect_equal(result@matrix, A, tolerance = 1e-8)
+})
+
+test_that("detect_transform_type identifies ITK text and binary affine files", {
+  itk_text <- system.file("extdata/ants/sample_ANTs_0GenericAffine.mat",
+                          package = "neurotransform")
+  itk_bin <- system.file("extdata/chris/ants/reg_0GenericAffine.mat",
+                         package = "neurotransform")
+  skip_if_not(file.exists(itk_text))
+  skip_if_not(file.exists(itk_bin))
+
+  expect_equal(detect_transform_type(itk_text), "itk_affine")
+  expect_equal(detect_transform_type(itk_bin), "itk_affine")
+})
+
+test_that("detect_transform_type disambiguates FSL matrices when affines are provided", {
+  fsl_mat <- system.file("extdata/fsl/S01_lin_6dof.mat", package = "neurotransform")
+  skip_if_not(file.exists(fsl_mat))
+
+  expect_equal(detect_transform_type(fsl_mat), "linear")
+  expect_equal(
+    detect_transform_type(fsl_mat, source_affine = diag(4), target_affine = diag(4)),
+    "fsl_affine"
+  )
+})
+
 test_that("read_transform respects explicit type", {
   warp_path <- system.file("extdata/chris/ants/reg_1Warp.nii.gz",
                            package = "neurotransform")
@@ -152,6 +188,164 @@ test_that("read_transform errors on unsupported type", {
   on.exit(unlink(tmp))
 
   expect_error(read_transform(tmp, type = "unsupported"), "Unsupported")
+})
+
+# ==============================================================================
+# LINEAR I/O TESTS
+# ==============================================================================
+
+test_that("read_linear_transform reads generic affine text", {
+  tmp <- tempfile(fileext = ".txt")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(4, 5, 6)
+  write_affine_matrix_txt(A, tmp)
+
+  morph <- read_linear_transform(tmp, format = "generic", source = "a", target = "b")
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(morph@matrix, A, tolerance = 1e-8)
+  expect_equal(source_of(morph), "a")
+  expect_equal(target_of(morph), "b")
+})
+
+test_that("read_linear_transform reads ITK Insight text affine", {
+  itk_text <- system.file("extdata/ants/sample_ANTs_0GenericAffine.mat",
+                          package = "neurotransform")
+  skip_if_not(file.exists(itk_text))
+
+  morph <- read_linear_transform(itk_text, format = "itk", source = "a", target = "b")
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_true(all(is.finite(morph@matrix)))
+})
+
+test_that("read_linear_transform reads ITK MATLAB v4 binary affine", {
+  itk_bin <- system.file("extdata/chris/ants/reg_0GenericAffine.mat",
+                         package = "neurotransform")
+  skip_if_not(file.exists(itk_bin))
+
+  morph <- read_linear_transform(itk_bin, format = "itk", source = "a", target = "b")
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_true(all(is.finite(morph@matrix)))
+})
+
+test_that("write_linear_transform generic round trip", {
+  tmp <- tempfile(fileext = ".txt")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(-1, 2, 9)
+  write_linear_transform(A, tmp, format = "generic")
+
+  morph <- read_linear_transform(tmp, format = "generic")
+  expect_equal(morph@matrix, A, tolerance = 1e-8)
+})
+
+test_that("write/read_linear_transform supports fsl format with affines", {
+  tmp <- tempfile(fileext = ".mat")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(1, 2, 3)
+  src_aff <- diag(4)
+  tgt_aff <- diag(4)
+
+  write_linear_transform(A, tmp, format = "fsl",
+                         source_affine = src_aff, target_affine = tgt_aff)
+  morph <- read_linear_transform(tmp, format = "fsl",
+                                 source = "src", target = "tgt",
+                                 source_affine = src_aff, target_affine = tgt_aff)
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(morph@matrix, A, tolerance = 1e-8)
+})
+
+test_that("write/read_linear_transform supports afni format", {
+  tmp <- tempfile(fileext = ".aff12.1D")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(0.5, -1.25, 2.75)
+
+  write_linear_transform(A, tmp, format = "afni")
+  morph <- read_linear_transform(tmp, format = "afni", source = "src", target = "tgt")
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(morph@matrix, A, tolerance = 1e-8)
+})
+
+test_that("write/read_linear_transform afni supports oblique correction", {
+  tmp <- tempfile(fileext = ".aff12.1D")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(0.5, -1.25, 2.75)
+  A[1, 2] <- 0.08
+  A[2, 1] <- -0.04
+
+  th <- pi / 7
+  rotz <- matrix(c(cos(th), -sin(th), 0,
+                   sin(th),  cos(th), 0,
+                   0,        0,       1), nrow = 3, byrow = TRUE)
+  src_aff <- diag(4)
+  src_aff[1:3, 1:3] <- rotz %*% diag(c(1.1, 1.2, 1.3))
+  src_aff[1:3, 4] <- c(5, -3, 2)
+
+  th2 <- -pi / 8
+  roty <- matrix(c(cos(th2), 0, sin(th2),
+                   0,        1, 0,
+                   -sin(th2),0, cos(th2)), nrow = 3, byrow = TRUE)
+  tgt_aff <- diag(4)
+  tgt_aff[1:3, 1:3] <- roty %*% diag(c(0.9, 1.4, 1.1))
+  tgt_aff[1:3, 4] <- c(-4, 6, 1)
+
+  write_linear_transform(
+    A, tmp, format = "afni",
+    source_affine = src_aff,
+    target_affine = tgt_aff,
+    oblique_correction = TRUE
+  )
+  morph <- read_linear_transform(
+    tmp, format = "afni",
+    source = "src", target = "tgt",
+    source_affine = src_aff,
+    target_affine = tgt_aff,
+    oblique_correction = TRUE
+  )
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(morph@matrix, A, tolerance = 1e-6)
+})
+
+test_that("write/read_linear_transform supports itk format", {
+  tmp <- tempfile(fileext = ".mat")
+  on.exit(unlink(tmp))
+
+  A <- diag(4)
+  A[1:3, 4] <- c(1.25, -0.5, 2)
+  A[1, 2] <- 0.1
+
+  write_linear_transform(A, tmp, format = "itk")
+  morph <- read_linear_transform(tmp, format = "itk", source = "src", target = "tgt")
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(morph@matrix, A, tolerance = 1e-6)
+})
+
+test_that("write_transform dispatches affine outputs", {
+  tmp <- tempfile(fileext = ".txt")
+  on.exit(unlink(tmp))
+  A <- diag(4)
+  A[1:3, 4] <- c(3, -2, 1)
+
+  expect_invisible(write_transform(A, tmp, type = "generic"))
+  morph <- read_linear_transform(tmp, format = "generic")
+  expect_equal(morph@matrix, A, tolerance = 1e-8)
+})
+
+test_that("read/write_linear_transform fsl requires source and target affines", {
+  tmp <- tempfile(fileext = ".mat")
+  on.exit(unlink(tmp))
+  write_affine_matrix_txt(diag(4), tmp)
+
+  expect_error(read_linear_transform(tmp, format = "fsl"), "required")
+  expect_error(write_linear_transform(diag(4), tmp, format = "fsl"), "required")
 })
 
 # ==============================================================================

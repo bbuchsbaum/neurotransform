@@ -34,3 +34,33 @@ test_that("convert_affine_convention flips FSL vox<->canonical with identity aff
 
   expect_equal(back, fsl, tolerance = 1e-8)
 })
+
+test_that("shape_zoom_affine matches expected centered affine", {
+  aff <- shape_zoom_affine(c(3, 5, 7), c(3, 2, 1))
+  expect_equal(
+    aff,
+    matrix(c(
+      -3, 0, 0, 3,
+      0, 2, 0, -4,
+      0, 0, 1, -3,
+      0, 0, 0, 1
+    ), nrow = 4, byrow = TRUE)
+  )
+
+  aff2 <- shape_zoom_affine(c(3, 5, 7), c(3, 2, 1), x_flip = FALSE)
+  expect_equal(
+    aff2,
+    matrix(c(
+      3, 0, 0, -3,
+      0, 2, 0, -4,
+      0, 0, 1, -3,
+      0, 0, 0, 1
+    ), nrow = 4, byrow = TRUE)
+  )
+})
+
+test_that("shape_zoom_affine validates inputs", {
+  expect_error(shape_zoom_affine(c(3, 5), c(1, 1, 1)), "equal")
+  expect_error(shape_zoom_affine(c(0, 5, 7), c(1, 1, 1)), "positive integer")
+  expect_error(shape_zoom_affine(c(3, 5, 7), c(1, 0, 1)), "non-zero")
+})

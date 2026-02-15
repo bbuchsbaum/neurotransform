@@ -19,6 +19,54 @@ is_affine_matrix <- function(x) {
   is.matrix(x) && all(dim(x) == c(4L, 4L)) && is.numeric(x) && all(is.finite(x))
 }
 
+#' Build a centered voxel-to-world affine from shape and zooms
+#'
+#' Mirrors the common neuroimaging convention where voxel sizes define the
+#' linear part and the image center maps to world origin.
+#'
+#' @param shape Length-N image shape
+#' @param zooms Length-N voxel sizes
+#' @param x_flip Logical; if TRUE, flip X axis (radiological-on-disk style)
+#' @param y_flip Logical; if TRUE, also flip Y axis (with x_flip gives DICOM style)
+#' @return 4x4 affine matrix
+#' @export
+shape_zoom_affine <- function(shape, zooms, x_flip = TRUE, y_flip = FALSE) {
+  shape <- as.numeric(shape)
+  zooms <- as.numeric(zooms)
+
+  if (!length(shape) || !length(zooms) || length(shape) != length(zooms)) {
+    stop("shape and zooms must be numeric vectors of equal, non-zero length")
+  }
+  if (any(!is.finite(shape)) || any(shape <= 0) || any(shape != floor(shape))) {
+    stop("shape must contain positive integer values")
+  }
+  if (any(!is.finite(zooms)) || any(zooms == 0)) {
+    stop("zooms must contain finite, non-zero values")
+  }
+
+  ndims <- length(shape)
+  if (ndims >= 3L) {
+    shape <- shape[1:3]
+    zooms <- zooms[1:3]
+  } else {
+    full_shape <- rep(1, 3)
+    full_zooms <- rep(1, 3)
+    full_shape[seq_len(ndims)] <- shape
+    full_zooms[seq_len(ndims)] <- zooms
+    shape <- full_shape
+    zooms <- full_zooms
+  }
+
+  if (isTRUE(x_flip)) zooms[1] <- -zooms[1]
+  if (isTRUE(y_flip)) zooms[2] <- -zooms[2]
+
+  origin <- (shape - 1) / 2
+  aff <- diag(4)
+  aff[1:3, 1:3] <- diag(zooms)
+  aff[1:3, 4] <- -origin * zooms
+  aff
+}
+
 #' Build a 4x4 affine matrix from components
 #'
 #' @param translation length-3 translation vector (applied last)
@@ -203,12 +251,16 @@ write_affine_matrix_txt <- function(matrix, file, type = NULL, comment = TRUE) {
 #' @param matrix 4x4 matrix in the `from` convention
 #' @param source_affine 4x4 voxel-to-world for source image
 #' @param target_affine 4x4 voxel-to-world for target image
+#' @param source_dim Optional source image dimensions (for FSL handedness swap)
+#' @param target_dim Optional target image dimensions (for FSL handedness swap)
 #' @param from Input convention ("generic", "fsl")
 #' @param to Output convention ("generic", "fsl")
 #' @export
 convert_affine_convention <- function(matrix,
                                       source_affine,
                                       target_affine,
+                                      source_dim = NULL,
+                                      target_dim = NULL,
                                       from = c("generic", "fsl"),
                                       to = c("generic", "fsl")) {
   from <- match.arg(from)
@@ -218,17 +270,21 @@ convert_affine_convention <- function(matrix,
   if (from == "fsl" && to == "generic") {
     # FSL FLIRT: target_vox = F * source_vox
     # Canonical: target_world -> source_world
-    W_s <- source_affine
-    W_t <- target_affine
     F <- matrix
-    return(W_s %*% solve(F) %*% solve(W_t))
+    return(
+      fsl_fsl_to_world(source_affine, dim = source_dim) %*%
+        solve(F) %*%
+        fsl_world_to_fsl(target_affine, dim = target_dim)
+    )
   }
   if (from == "generic" && to == "fsl") {
     # Invert the above relationship
-    W_s <- source_affine
-    W_t <- target_affine
     C <- matrix
-    return(solve(W_s) %*% solve(C) %*% W_t)
+    return(
+      fsl_world_to_fsl(target_affine, dim = target_dim) %*%
+        solve(C) %*%
+        fsl_fsl_to_world(source_affine, dim = source_dim)
+    )
   }
   # For now other conventions are passthrough; add as needed.
   matrix

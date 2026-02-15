@@ -68,18 +68,100 @@ afni_read_aff12 <- function(path) {
 #' Convert RAI affine to RAS
 #'
 #' Converts an AFNI RAI affine matrix to our internal RAS convention
-#' by flipping the Z axis.
+#' by flipping the Z axis. Optionally applies AFNI-style deobliquing
+#' compensation when source/target image affines are provided.
 #'
 #' @param mat_rai 4x4 affine in RAI coordinates
+#' @param source_affine Optional 4x4 source (moving) voxel-to-world affine
+#' @param target_affine Optional 4x4 target (reference) voxel-to-world affine
+#' @param oblique_correction Logical; apply AFNI cardinal rotation correction
 #' @return 4x4 affine in RAS coordinates
 #' @export
 #' @examples
 #' mat_rai <- diag(4)
 #' mat_ras <- afni_aff12_to_ras(mat_rai)
-afni_aff12_to_ras <- function(mat_rai) {
+afni_aff12_to_ras <- function(mat_rai,
+                              source_affine = NULL,
+                              target_affine = NULL,
+                              oblique_correction = TRUE) {
   stopifnot(is.matrix(mat_rai), all(dim(mat_rai) == 4))
   flip <- diag(c(1, 1, -1, 1))
-  flip %*% mat_rai %*% flip
+  mat_ras <- flip %*% mat_rai %*% flip
+
+  if (isTRUE(oblique_correction)) {
+    if (!is.null(target_affine) && afni_is_oblique(target_affine)) {
+      mat_ras <- mat_ras %*% afni_cardinal_rotation(target_affine, real_to_card = TRUE)
+    }
+    if (!is.null(source_affine) && afni_is_oblique(source_affine)) {
+      mat_ras <- afni_cardinal_rotation(source_affine, real_to_card = FALSE) %*% mat_ras
+    }
+  }
+
+  mat_ras
+}
+
+# Convert internal RAS pullback affine to AFNI RAI affine, with optional
+# AFNI-style deobliquing compensation.
+afni_ras_to_aff12 <- function(mat_ras,
+                              source_affine = NULL,
+                              target_affine = NULL,
+                              oblique_correction = TRUE) {
+  stopifnot(is.matrix(mat_ras), all(dim(mat_ras) == 4))
+  out <- mat_ras
+
+  if (isTRUE(oblique_correction)) {
+    if (!is.null(target_affine) && afni_is_oblique(target_affine)) {
+      out <- out %*% afni_cardinal_rotation(target_affine, real_to_card = FALSE)
+    }
+    if (!is.null(source_affine) && afni_is_oblique(source_affine)) {
+      out <- afni_cardinal_rotation(source_affine, real_to_card = TRUE) %*% out
+    }
+  }
+
+  flip <- diag(c(1, 1, -1, 1))
+  flip %*% out %*% flip
+}
+
+#' Detect whether an affine is oblique (not cardinal axis-aligned)
+#'
+#' @param affine 4x4 voxel-to-world affine
+#' @param threshold_deg Angular threshold in degrees
+#' @return Logical
+#' @export
+afni_is_oblique <- function(affine, threshold_deg = 0.01) {
+  stopifnot(is.matrix(affine), all(dim(affine) == 4))
+  A <- affine[1:3, 1:3, drop = FALSE]
+  norms <- sqrt(colSums(A^2))
+  norms[norms == 0] <- 1
+  dirs <- sweep(A, 2, norms, "/")
+  max_abs <- pmin(1, pmax(0, apply(abs(dirs), 2, max)))
+  ang <- acos(max_abs) * 180 / pi
+  max(ang, na.rm = TRUE) > threshold_deg
+}
+
+# Compute AFNI "DICOM cardinal" matrix by dropping obliquity and preserving
+# voxel sizes and origin.
+afni_dicom_real_to_card <- function(oblique) {
+  stopifnot(is.matrix(oblique), all(dim(oblique) == 4))
+
+  retval <- diag(4)
+  retval[1:3, 4] <- oblique[1:3, 4]
+
+  A <- oblique[1:3, 1:3, drop = FALSE]
+  vs <- sqrt(colSums(A^2))
+  maxabs <- apply(abs(A), 2, max)
+  maxabs[maxabs == 0] <- 1
+
+  cosines <- sweep(A, 2, maxabs, "/")
+  cosines[abs(cosines) < 1] <- 0
+  retval[1:3, 1:3] <- sweep(cosines, 2, round(vs, 4), "*")
+  retval
+}
+
+# Rotation matrix that maps between AFNI "real" and "cardinal" spaces.
+afni_cardinal_rotation <- function(oblique, real_to_card = TRUE) {
+  card <- afni_dicom_real_to_card(oblique)
+  if (isTRUE(real_to_card)) card %*% solve(oblique) else oblique %*% solve(card)
 }
 
 #' Build Affine3DMorphism from AFNI .aff12.1D

@@ -13,7 +13,7 @@ surface_sampler(
 )
 }
 \arguments{
-\item{vertices}{Vertex coordinates (V x 3)}
+\item{vertices}{Vertex coordinates (V x 3), SampledPoints, or SurfaceMesh}
 
 \item{data}{Vertex data (length V or V x k)}
 

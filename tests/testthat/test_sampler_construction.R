@@ -1,6 +1,53 @@
 # Test Sampler and Grid construction and properties
 
 # =============================================================================
+# IRREGULAR REFERENCE TESTS
+# =============================================================================
+
+test_that("sampled_points constructs lightweight irregular references", {
+  coords <- matrix(c(
+    0, 0, 0,
+    1, 2, 3,
+    -1, 4, 2
+  ), ncol = 3, byrow = TRUE)
+
+  pts <- sampled_points(coords)
+  expect_s4_class(pts, "SampledPoints")
+  expect_equal(pts@coords, coords)
+  expect_true(nzchar(pts@domain))
+})
+
+test_that("surface_mesh accepts 1-based faces and stores 0-based faces", {
+  verts <- matrix(c(
+    0, 0, 0,
+    1, 0, 0,
+    0, 1, 0
+  ), ncol = 3, byrow = TRUE)
+  faces <- matrix(c(1, 2, 3), ncol = 3, byrow = TRUE)
+
+  mesh <- surface_mesh(verts, faces)
+  expect_s4_class(mesh, "SurfaceMesh")
+  expect_equal(mesh@faces, matrix(c(0L, 1L, 2L), ncol = 3, byrow = TRUE))
+})
+
+test_that("mesh_is_sphere and mesh_set_radius work for spherical meshes", {
+  verts <- matrix(c(
+    1, 0, 0,
+    -1, 0, 0,
+    0, 1, 0,
+    0, -1, 0,
+    0, 0, 1,
+    0, 0, -1
+  ), ncol = 3, byrow = TRUE)
+  mesh <- surface_mesh(verts)
+
+  expect_true(mesh_is_sphere(mesh))
+  mesh2 <- mesh_set_radius(mesh, radius = 100)
+  radii <- sqrt(rowSums(mesh2@coords^2))
+  expect_equal(radii, rep(100, length(radii)), tolerance = 1e-6)
+})
+
+# =============================================================================
 # VOLUME SAMPLER TESTS
 # =============================================================================
 
@@ -146,6 +193,21 @@ test_that("surface_sampler creates nearest sampler", {
   expect_s4_class(sampler, "Sampler")
   expect_equal(sampler@method, "nearest")
   expect_equal(sampler@vdim, 1L)
+})
+
+test_that("surface_sampler accepts SurfaceMesh and infers faces/domain", {
+  verts <- matrix(c(
+    0, 0, 0,
+    1, 0, 0,
+    0, 1, 0
+  ), ncol = 3, byrow = TRUE)
+  faces <- matrix(c(0, 1, 2), ncol = 3, byrow = TRUE)
+  mesh <- surface_mesh(verts, faces, domain = "mesh_domain")
+  data <- c(10, 20, 30)
+
+  sampler <- surface_sampler(mesh, data, method = "nearest")
+  expect_s4_class(sampler, "Sampler")
+  expect_equal(sampler@domain, "mesh_domain")
 })
 
 test_that("surface_sampler errors without faces for barycentric", {

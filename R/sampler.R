@@ -95,6 +95,155 @@ setMethod("show", "Grid", function(object) {
 })
 
 # =============================================================================
+# LIGHTWEIGHT IRREGULAR REFERENCES
+# =============================================================================
+
+#' Sampled points (irregular spatial reference)
+#'
+#' Lightweight container for point samples in world coordinates.
+#'
+#' @slot coords Numeric matrix (N x 3)
+#' @slot domain Character domain hash
+#' @export
+setClass("SampledPoints",
+  slots = c(
+    coords = "matrix",
+    domain = "character"
+  ),
+  prototype = list(
+    coords = matrix(0, nrow = 0, ncol = 3),
+    domain = ""
+  )
+)
+
+#' Surface mesh (vertices + faces)
+#'
+#' Lightweight mesh reference for surface operations.
+#'
+#' @slot coords Numeric matrix (V x 3) of vertices
+#' @slot faces Integer matrix (F x 3) of 0-based triangle indices
+#' @slot domain Character domain hash
+#' @export
+setClass("SurfaceMesh",
+  slots = c(
+    coords = "matrix",
+    faces = "matrix",
+    domain = "character"
+  ),
+  prototype = list(
+    coords = matrix(0, nrow = 0, ncol = 3),
+    faces = matrix(integer(0), nrow = 0, ncol = 3),
+    domain = ""
+  )
+)
+
+#' @rdname SampledPoints-class
+#' @export
+setMethod("show", "SampledPoints", function(object) {
+  cat(sprintf("<SampledPoints | n=%d | domain=%s>\n",
+              nrow(object@coords),
+              if (nzchar(object@domain)) object@domain else "<none>"))
+})
+
+#' @rdname SurfaceMesh-class
+#' @export
+setMethod("show", "SurfaceMesh", function(object) {
+  cat(sprintf("<SurfaceMesh | vertices=%d | faces=%d | domain=%s>\n",
+              nrow(object@coords),
+              nrow(object@faces),
+              if (nzchar(object@domain)) object@domain else "<none>"))
+})
+
+#' Construct sampled points
+#'
+#' @param coords Numeric matrix with 3 columns (N x 3)
+#' @param domain Optional domain identifier
+#' @return SampledPoints object
+#' @export
+sampled_points <- function(coords, domain = NULL) {
+  if (!is.matrix(coords)) {
+    coords <- coerce_surface_reference(coords, require_faces = FALSE)$vertices
+  }
+  if (!is.matrix(coords) || ncol(coords) != 3 || !is.numeric(coords)) {
+    stop("coords must be a numeric matrix with 3 columns")
+  }
+  if (!all(is.finite(coords))) stop("coords must contain only finite values")
+  if (is.null(domain)) domain <- compute_hash("sampled_points", coords)
+  new("SampledPoints", coords = coords, domain = domain)
+}
+
+#' Construct a surface mesh
+#'
+#' @param vertices Numeric matrix with 3 columns (V x 3)
+#' @param faces Optional matrix with 3 columns (F x 3), 0- or 1-based indices
+#' @param domain Optional domain identifier
+#' @return SurfaceMesh object
+#' @export
+surface_mesh <- function(vertices, faces = NULL, domain = NULL) {
+  if (!is.matrix(vertices)) {
+    ref <- coerce_surface_reference(vertices, require_faces = FALSE)
+    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
+    if (is.null(domain) && nzchar(ref$domain)) domain <- ref$domain
+    vertices <- ref$vertices
+  }
+
+  if (!is.matrix(vertices) || ncol(vertices) != 3 || !is.numeric(vertices)) {
+    stop("vertices must be a numeric matrix with 3 columns")
+  }
+  if (!all(is.finite(vertices))) stop("vertices must contain only finite values")
+  if (nrow(vertices) < 1L) stop("vertices must be non-empty")
+
+  if (is.null(faces)) {
+    faces0 <- matrix(integer(0), nrow = 0, ncol = 3)
+  } else {
+    if (!is.matrix(faces) || ncol(faces) != 3 || !is.numeric(faces)) {
+      stop("faces must be a numeric matrix with 3 columns")
+    }
+    if (!all(is.finite(faces))) stop("faces must contain only finite values")
+    faces0 <- matrix(as.integer(round(faces)), ncol = 3)
+    if (any(abs(faces - faces0) > 1e-8)) stop("faces must contain integer indices")
+    if (nrow(faces0) > 0) {
+      if (min(faces0) >= 1L) faces0 <- faces0 - 1L
+      if (min(faces0) < 0L || max(faces0) >= nrow(vertices)) {
+        stop("faces indices are out of bounds for vertices")
+      }
+    }
+  }
+
+  if (is.null(domain)) domain <- compute_hash("surface_mesh", vertices, faces0)
+  new("SurfaceMesh", coords = vertices, faces = faces0, domain = domain)
+}
+
+#' Check whether a surface mesh is approximately spherical
+#'
+#' @param mesh SurfaceMesh object
+#' @param tolerance Ratio tolerance for min/max radius comparison
+#' @return Logical
+#' @export
+mesh_is_sphere <- function(mesh, tolerance = 1.001) {
+  if (!inherits(mesh, "SurfaceMesh")) stop("mesh must be a SurfaceMesh")
+  dists <- sqrt(rowSums(mesh@coords^2))
+  if (!length(dists)) return(FALSE)
+  (min(dists) * tolerance) > max(dists)
+}
+
+#' Set mesh radius for spherical meshes
+#'
+#' @param mesh SurfaceMesh object
+#' @param radius Target radius
+#' @return SurfaceMesh object with rescaled coordinates
+#' @export
+mesh_set_radius <- function(mesh, radius = 100) {
+  if (!inherits(mesh, "SurfaceMesh")) stop("mesh must be a SurfaceMesh")
+  if (!mesh_is_sphere(mesh)) {
+    stop("mesh_set_radius() requires an approximately spherical mesh")
+  }
+  dists <- sqrt(rowSums(mesh@coords^2))
+  mesh@coords <- mesh@coords * (radius / dists)
+  mesh
+}
+
+# =============================================================================
 # GRID UTILITIES
 # =============================================================================
 
@@ -264,7 +413,7 @@ volume_sampler <- function(data, affine = NULL,
 
 #' Create a surface sampler
 #'
-#' @param vertices Vertex coordinates (V x 3)
+#' @param vertices Vertex coordinates (V x 3), SampledPoints, or SurfaceMesh
 #' @param data Vertex data (length V or V x k)
 #' @param faces Face indices (F x 3, optional)
 #' @param method "nearest" or "barycentric"
@@ -276,12 +425,27 @@ surface_sampler <- function(vertices, data, faces = NULL,
                             domain = NULL) {
   method <- match.arg(method)
 
+  if (!is.matrix(vertices)) {
+    ref <- coerce_surface_reference(vertices, require_faces = FALSE)
+    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
+    if (is.null(domain) && nzchar(ref$domain)) domain <- ref$domain
+    vertices <- ref$vertices
+  }
+
+  if (!is.matrix(vertices) || ncol(vertices) != 3 || !is.numeric(vertices)) {
+    stop("vertices must be a numeric matrix with 3 columns")
+  }
+  if (!all(is.finite(vertices))) stop("vertices must contain only finite values")
+
   if (method == "barycentric" && is.null(faces)) {
     stop("Barycentric interpolation requires faces")
   }
 
   nv <- nrow(vertices)
   vdim <- if (is.matrix(data)) ncol(data) else 1L
+  if ((is.vector(data) && length(data) != nv) || (is.matrix(data) && nrow(data) != nv)) {
+    stop("data must have one value (or row) per vertex")
+  }
 
   if (is.null(domain)) {
     domain <- compute_hash("surface", nv)
@@ -427,6 +591,8 @@ sample_volume_on_surface <- function(data, morphism, surface_coords = NULL,
     if (is.null(surface_coords)) {
       stop("Surface coordinates required")
     }
+  } else if (!is.matrix(surface_coords)) {
+    surface_coords <- coerce_surface_reference(surface_coords, require_faces = FALSE)$vertices
   }
 
   # Handle ribbon sampling specially
@@ -478,6 +644,8 @@ backproject_surface_to_volume <- function(surface_values, morphism, grid,
 
   if (is.null(surface_coords)) {
     surface_coords <- morphism@params$mid_coords
+  } else if (!is.matrix(surface_coords)) {
+    surface_coords <- coerce_surface_reference(surface_coords, require_faces = FALSE)$vertices
   }
   if (is.null(surface_coords)) stop("surface_coords required (or provide morphism@params$mid_coords)")
   if (!is.matrix(surface_coords) || ncol(surface_coords) != 3) stop("surface_coords must be an N x 3 matrix")

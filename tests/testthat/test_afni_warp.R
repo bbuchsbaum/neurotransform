@@ -6,6 +6,18 @@ test_that("afni_aff12_to_ras flips Z axis correctly", {
   expect_equal(mat_ras[1:2, 1:2], diag(2))
 })
 
+test_that("afni_is_oblique distinguishes cardinal vs oblique affines", {
+  expect_false(afni_is_oblique(diag(4)))
+
+  th <- pi / 6
+  rotz <- matrix(c(cos(th), -sin(th), 0,
+                   sin(th),  cos(th), 0,
+                   0,        0,       1), nrow = 3, byrow = TRUE)
+  aff <- diag(4)
+  aff[1:3, 1:3] <- rotz %*% diag(c(2, 2, 2))
+  expect_true(afni_is_oblique(aff))
+})
+
 test_that("afni_load_affine_morphism reads and converts aff12", {
   path <- system.file("extdata/afni/anatQQ.FT.aff12.1D", package = "neurotransform")
   skip_if_not(file.exists(path))

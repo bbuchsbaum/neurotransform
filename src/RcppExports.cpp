@@ -297,6 +297,20 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_apply_bspline_coeff_field
+Rcpp::NumericMatrix cpp_apply_bspline_coeff_field(const Rcpp::NumericMatrix& coords, const Rcpp::NumericVector& coeff, const Rcpp::IntegerVector& dim, const Rcpp::NumericMatrix& world_to_ctrl);
+RcppExport SEXP _neurotransform_cpp_apply_bspline_coeff_field(SEXP coordsSEXP, SEXP coeffSEXP, SEXP dimSEXP, SEXP world_to_ctrlSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type coords(coordsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type coeff(coeffSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerVector& >::type dim(dimSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type world_to_ctrl(world_to_ctrlSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_apply_bspline_coeff_field(coords, coeff, dim, world_to_ctrl));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_compose_warp_fields
 Rcpp::List cpp_compose_warp_fields(const Rcpp::NumericVector& fieldA, const Rcpp::IntegerVector& dimA, const Rcpp::NumericMatrix& world_to_voxA, const Rcpp::NumericVector& fieldB, const Rcpp::IntegerVector& dimB, const Rcpp::NumericMatrix& vox_to_worldB);
 RcppExport SEXP _neurotransform_cpp_compose_warp_fields(SEXP fieldASEXP, SEXP dimASEXP, SEXP world_to_voxASEXP, SEXP fieldBSEXP, SEXP dimBSEXP, SEXP vox_to_worldBSEXP) {
@@ -372,6 +386,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_neurotransform_cpp_triplets_to_dgC", (DL_FUNC) &_neurotransform_cpp_triplets_to_dgC, 6},
     {"_neurotransform_cpp_apply_warp_field", (DL_FUNC) &_neurotransform_cpp_apply_warp_field, 4},
     {"_neurotransform_cpp_apply_warp_field_cubic", (DL_FUNC) &_neurotransform_cpp_apply_warp_field_cubic, 4},
+    {"_neurotransform_cpp_apply_bspline_coeff_field", (DL_FUNC) &_neurotransform_cpp_apply_bspline_coeff_field, 4},
     {"_neurotransform_cpp_compose_warp_fields", (DL_FUNC) &_neurotransform_cpp_compose_warp_fields, 6},
     {"_neurotransform_cpp_absolute_to_displacement", (DL_FUNC) &_neurotransform_cpp_absolute_to_displacement, 3},
     {"_neurotransform_cpp_trilinear_weights", (DL_FUNC) &_neurotransform_cpp_trilinear_weights, 2},

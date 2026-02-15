@@ -10,6 +10,8 @@ NULL
 .onLoad <- function(libname, pkgname) {
   # Register default neuroim2 warp loader
   register_loader("neuroim2", load_warp_neuroim2)
+  # Register FNIRT coefficient loader (B-spline coefficients, not dense fields)
+  register_loader("fsl_coef", load_warp_fsl_coef)
   # Register ANTs H5 loader (requires hdf5r)
   register_loader("ants_h5", load_warp_ants_h5)
 }

@@ -124,7 +124,7 @@ setClass(
 #' Stores metadata; the actual warp field is loaded on demand.
 #'
 #' @slot warp_path Path to the warp field file
-#' @slot warp_type Type of warp ("ants", "ants_h5", "fsl", "afni", "freesurfer")
+#' @slot warp_type Type of warp ("ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense")
 #' @slot inverse_path Path to inverse warp (if available)
 #' @export
 setClass(

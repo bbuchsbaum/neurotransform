@@ -32,16 +32,12 @@ warp_transform_coords <- function(morphism, coords) {
 
   method <- morphism@params$warp_method %||% "linear"
 
-  # ANTs H5 files store displacement fields in LPS (ITK convention).
-  # However, the actual coordinate system depends on the warp field's vox_to_world matrix:
-  # - If vox_to_world has negative diagonal elements, it's in LPS physical coordinates
-  # - If vox_to_world is identity, coordinates are just voxel indices (no conversion needed)
-  #
-  # The warp's world_to_vox matrix already handles coordinate conversion appropriately,
-  # so we don't need to manually flip coordinates here.
-  is_ants_h5 <- identical(morphism@warp_type, "ants_h5")
+  # FNIRT coefficient fields are not dense displacements; evaluate cubic
+  # B-spline basis directly at query coordinates.
+  if (identical(warp$mode %||% "", "bspline_coefficients")) {
+    return(cpp_apply_bspline_coeff_field(coords, warp$array, warp$dim, warp$world_to_vox))
+  }
 
-  # Use coordinates directly - the warp's world_to_vox handles any needed conversion
   coords_in <- coords
 
   # Note: For ANTs composite H5 files, the embedded affine is typically meant to be
@@ -71,6 +67,13 @@ warp_transform_coords <- function(morphism, coords) {
     cpp_apply_warp_field_cubic(coords_in, warp$array, warp$dim, warp$world_to_vox)
   } else {
     cpp_apply_warp_field(coords_in, warp$array, warp$dim, warp$world_to_vox)
+  }
+
+  # Outside-warp locations default to identity displacement, mirroring common
+  # dense-field behavior where undefined samples imply zero displacement.
+  invalid <- !is.finite(result[, 1]) | !is.finite(result[, 2]) | !is.finite(result[, 3])
+  if (any(invalid)) {
+    result[invalid, ] <- coords_in[invalid, , drop = FALSE]
   }
 
   result
