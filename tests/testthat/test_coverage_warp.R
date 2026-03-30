@@ -185,6 +185,37 @@ test_that("warp_transform_coords caches converted absolute displacement", {
   expect_equal(result1, result2)
 })
 
+test_that("warp_transform_coords applies absolute deformations exactly on non-identity grids", {
+  aff <- diag(4)
+  aff[1:3, 1:3] <- diag(c(2, 3, 4))
+  aff[1:3, 4] <- c(10, -6, 4)
+  grid <- grid_spec(dims = c(6L, 6L, 6L), affine = aff)
+
+  delta <- c(1.25, -0.75, 0.5)
+  world <- grid_coords(grid)
+  field <- array(0, dim = c(grid@dims, 3L))
+  for (k in 1:3) {
+    field[, , , k] <- array(world[, k] + delta[k], dim = grid@dims)
+  }
+
+  morph <- warp_from_field("src", "tgt", field, grid = grid,
+                           representation = "deformations")
+
+  coords <- matrix(c(
+    14, 0, 8,
+    18, 6, 16
+  ), ncol = 3, byrow = TRUE)
+
+  result <- transform(morph, coords)
+
+  expect_equal(result,
+               sweep(coords, 2, delta, "+"),
+               tolerance = 1e-8)
+
+  cache_key <- paste0(morph@warp_path, "::relative")
+  expect_true(exists(cache_key, envir = morph@cache, inherits = FALSE))
+})
+
 # ==============================================================================
 # EMBEDDED AFFINE HANDLING
 # ==============================================================================

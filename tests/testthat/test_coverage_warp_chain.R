@@ -153,6 +153,31 @@ test_that("apply_warp_chain mixed chain works", {
   expect_true(all(is.finite(result)))
 })
 
+test_that("apply_warp_chain preserves pullback order for affine-warp-affine paths", {
+  warp_path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
+  skip_if_not(file.exists(warp_path))
+
+  aff_pre <- diag(4)
+  aff_pre[1, 4] <- -0.1
+  aff_post <- diag(4)
+  aff_post[2, 4] <- 0.2
+
+  f <- Affine3DMorphism("src", "mid1", aff_pre)
+  w <- Warp3DMorphism("mid1", "mid2", warp_path = warp_path, warp_type = "fsl")
+  g <- Affine3DMorphism("mid2", "tgt", aff_post)
+
+  coords <- matrix(c(
+    0.5, 0.5, 0.5,
+    1.5, 1.5, 1.5
+  ), ncol = 3, byrow = TRUE)
+
+  chain <- neurotransform:::build_warp_chain(list(f, w, g))
+  via_chain <- neurotransform:::apply_warp_chain(chain, coords)
+  manual <- transform(f, transform(w, transform(g, coords)))
+
+  expect_equal(via_chain, manual, tolerance = 1e-8)
+})
+
 # ==============================================================================
 # C++ AFFINE CHAIN
 # ==============================================================================

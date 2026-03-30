@@ -23,6 +23,53 @@ inline double cubic_weight(double t) {
   return 0.0;
 }
 
+static void clear_weights(ResamplePlan& plan, int idx_base, int nslots) {
+  for (int k = 0; k < nslots; ++k) {
+    plan.indices[idx_base + k] = -1;
+    plan.weights[idx_base + k] = 0.0;
+  }
+}
+
+static bool fill_linear_point(double x, double y, double z,
+                              ResamplePlan& plan, int idx_base, int nslots) {
+  if (x < -0.5 || y < -0.5 || z < -0.5 ||
+      x > plan.nx - 0.5 || y > plan.ny - 0.5 || z > plan.nz - 0.5) {
+    clear_weights(plan, idx_base, nslots);
+    return false;
+  }
+
+  int x0 = (int)std::floor(x);
+  int y0 = (int)std::floor(y);
+  int z0 = (int)std::floor(z);
+  double fx = x - x0, fy = y - y0, fz = z - z0;
+
+  double wx[2] = {1.0 - fx, fx};
+  double wy[2] = {1.0 - fy, fy};
+  double wz[2] = {1.0 - fz, fz};
+
+  int k = 0;
+  for (int iz = 0; iz < 2; ++iz) {
+    for (int iy = 0; iy < 2; ++iy) {
+      for (int ix = 0; ix < 2; ++ix) {
+        double w = wx[ix] * wy[iy] * wz[iz];
+        int xi_n = std::min(std::max(x0 + ix, 0), plan.nx - 1);
+        int yi_n = std::min(std::max(y0 + iy, 0), plan.ny - 1);
+        int zi_n = std::min(std::max(z0 + iz, 0), plan.nz - 1);
+        int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
+        plan.indices[idx_base + k] = linear_idx;
+        plan.weights[idx_base + k] = w;
+        ++k;
+      }
+    }
+  }
+
+  for (; k < nslots; ++k) {
+    plan.indices[idx_base + k] = -1;
+    plan.weights[idx_base + k] = 0.0;
+  }
+  return true;
+}
+
 static void fill_nearest(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) {
   int n = coords.nrow();
   for (int i = 0; i < n; ++i) {
@@ -46,39 +93,8 @@ static void fill_linear(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) {
   int n = coords.nrow();
   for (int i = 0; i < n; ++i) {
     double x = coords(i,0), y = coords(i,1), z = coords(i,2);
-    int xi = (int)std::floor(x);
-    int yi = (int)std::floor(y);
-    int zi = (int)std::floor(z);
-    double fx = x - xi, fy = y - yi, fz = z - zi;
-
     int idx_base = i * plan.nweights;
-    if (xi < 0 || yi < 0 || zi < 0 || xi >= plan.nx - 1 || yi >= plan.ny - 1 || zi >= plan.nz - 1) {
-      for (int k = 0; k < plan.nweights; ++k) {
-        plan.indices[idx_base + k] = -1;
-        plan.weights[idx_base + k] = 0.0;
-      }
-      continue;
-    }
-
-    double wx[2] = {1.0 - fx, fx};
-    double wy[2] = {1.0 - fy, fy};
-    double wz[2] = {1.0 - fz, fz};
-
-    int k = 0;
-    for (int iz = 0; iz < 2; ++iz) {
-      for (int iy = 0; iy < 2; ++iy) {
-        for (int ix = 0; ix < 2; ++ix) {
-          double w = wx[ix] * wy[iy] * wz[iz];
-          int xi_n = xi + ix;
-          int yi_n = yi + iy;
-          int zi_n = zi + iz;
-          int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
-          plan.indices[idx_base + k] = linear_idx;
-          plan.weights[idx_base + k] = w;
-          ++k;
-        }
-      }
-    }
+    fill_linear_point(x, y, z, plan, idx_base, plan.nweights);
   }
 }
 
@@ -94,34 +110,9 @@ static void fill_cubic(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) {
     int idx_base = i * plan.nweights;
 
     // If near boundary, fall back to trilinear weights into first 8 slots
-    if (xi < 1 || yi < 1 || zi < 1 || xi >= plan.nx - 2 || yi >= plan.ny - 2 || zi >= plan.nz - 2) {
-      // manual linear weights
-      double fx = x - xi, fy = y - yi, fz = z - zi;
-      if (xi < 0 || yi < 0 || zi < 0 || xi >= plan.nx - 1 || yi >= plan.ny - 1 || zi >= plan.nz - 1) {
-        for (int k = 0; k < plan.nweights; ++k) {
-          plan.indices[idx_base + k] = -1;
-          plan.weights[idx_base + k] = 0.0;
-        }
-        continue;
-      }
-      double wx_lin[2] = {1.0 - fx, fx};
-      double wy_lin[2] = {1.0 - fy, fy};
-      double wz_lin[2] = {1.0 - fz, fz};
-      int k = 0;
-      for (int iz = 0; iz < 2; ++iz) for (int iy = 0; iy < 2; ++iy) for (int ix = 0; ix < 2; ++ix) {
-        double w = wx_lin[ix] * wy_lin[iy] * wz_lin[iz];
-        int xi_n = xi + ix;
-        int yi_n = yi + iy;
-        int zi_n = zi + iz;
-        int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
-        plan.indices[idx_base + k] = linear_idx;
-        plan.weights[idx_base + k] = w;
-        ++k;
-      }
-      for (; k < plan.nweights; ++k) {
-        plan.indices[idx_base + k] = -1;
-        plan.weights[idx_base + k] = 0.0;
-      }
+    if (x < 0.5 || y < 0.5 || z < 0.5 ||
+        x > plan.nx - 1.5 || y > plan.ny - 1.5 || z > plan.nz - 1.5) {
+      fill_linear_point(x, y, z, plan, idx_base, plan.nweights);
       continue;
     }
 
@@ -137,9 +128,9 @@ static void fill_cubic(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) {
       for (int iy = -1; iy <= 2; ++iy) {
         for (int ix = -1; ix <= 2; ++ix) {
           double w = wx[ix + 1] * wy[iy + 1] * wz[iz + 1];
-          int xi_n = xi + ix;
-          int yi_n = yi + iy;
-          int zi_n = zi + iz;
+          int xi_n = std::min(std::max(xi + ix, 0), plan.nx - 1);
+          int yi_n = std::min(std::max(yi + iy, 0), plan.ny - 1);
+          int zi_n = std::min(std::max(zi + iz, 0), plan.nz - 1);
           int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
           plan.indices[idx_base + k] = linear_idx;
           plan.weights[idx_base + k] = w;

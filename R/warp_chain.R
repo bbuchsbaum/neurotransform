@@ -46,10 +46,11 @@ build_warp_chain <- function(path) {
     return(list(kind = "affine", matrix = mat, path = path))
   }
 
-  # Mixed path: compress adjacent affines, keep warps explicit
+  # Mixed path: preserve exact pullback order while batching consecutive affines.
+  # Path morphisms are stored source -> target, so pullback evaluation applies them
+  # in reverse order at target coordinates.
   segments <- list()
   current_affine <- diag(4)
-  pending_warp <- NULL
 
   for (m in rev(path)) {
     kind <- morphism_kind(m)
@@ -58,28 +59,16 @@ build_warp_chain <- function(path) {
     } else if (kind == "identity") {
       next
     } else {
-      # Flush accumulated affine before warp
       if (!all(current_affine == diag(4))) {
         segments <- c(segments, list(list(type = "affine", matrix = current_affine)))
         current_affine <- diag(4)
       }
-      # Compose consecutive warps B . A into one warp if we already have a pending warp
-      if (!is.null(pending_warp)) {
-        composed <- list(type = "warp_comp", warpA = pending_warp, warpB = m)
-        segments <- c(segments, list(composed))
-        pending_warp <- NULL
-      } else {
-        pending_warp <- m
-      }
+      segments <- c(segments, list(list(type = "warp", morphism = m)))
     }
   }
 
-  # Flush trailing affine
   if (!all(current_affine == diag(4))) {
     segments <- c(segments, list(list(type = "affine", matrix = current_affine)))
-  }
-  if (!is.null(pending_warp)) {
-    segments <- c(segments, list(list(type = "warp", morphism = pending_warp)))
   }
 
   list(kind = "mixed", segments = segments, path = path)

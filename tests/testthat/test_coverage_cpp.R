@@ -564,6 +564,39 @@ test_that("cpp_apply_resample_plan applies precomputed plan", {
   expect_equal(length(result), 1)
 })
 
+test_that("cpp_apply_resample_plan matches direct sampling at boundary-sensitive coordinates", {
+  src_dim <- c(5L, 5L, 5L)
+  data <- array(0, dim = src_dim)
+  for (x in 0:(src_dim[1] - 1)) {
+    for (y in 0:(src_dim[2] - 1)) {
+      for (z in 0:(src_dim[3] - 1)) {
+        data[x + 1, y + 1, z + 1] <- x^2 + 2 * y^2 + 3 * z^2 + 0.5 * x * y
+      }
+    }
+  }
+
+  coords <- matrix(c(
+    -0.51, 1.2, 2.0,
+    -0.49, 1.2, 2.0,
+    -0.25, 1.2, 2.0,
+     0.49, 1.2, 2.0,
+     3.49, 2.2, 1.4,
+     3.51, 2.2, 1.4,
+     4.49, 2.2, 1.4,
+     4.51, 2.2, 1.4,
+     2.3, -0.49, 1.7,
+     2.3, 4.49, 1.7
+  ), ncol = 3, byrow = TRUE)
+
+  for (method in c("nearest", "linear", "cubic")) {
+    plan <- neurotransform:::cpp_make_resample_plan(src_dim, coords, method)
+    via_plan <- neurotransform:::cpp_apply_resample_plan(plan, data, outside = -999)
+    direct <- neurotransform:::cpp_sample_volume(data, coords, diag(4), method, outside = -999)
+
+    expect_equal(via_plan, direct, tolerance = 1e-10, info = method)
+  }
+})
+
 # ==============================================================================
 # CPP RIBBON FUNCTIONS TESTS
 # ==============================================================================

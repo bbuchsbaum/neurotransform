@@ -221,6 +221,58 @@ test_that("Affine3DMorphism jacobian_det pushforward mode inverts", {
   expect_equal(det_push, 1 / det_pull)
 })
 
+test_that("Warp3DMorphism jacobian respects world scaling on anisotropic grids", {
+  grad <- matrix(c(
+    0.10,  0.03,  0.00,
+   -0.02,  0.00,  0.05,
+    0.00,  0.04, -0.01
+  ), nrow = 3, byrow = TRUE)
+  expected <- diag(3) + grad
+  expected_det <- det(expected)
+
+  build_field <- function(grid) {
+    coords <- grid_coords(grid)
+    disp <- coords %*% t(grad)
+    field <- array(0, dim = c(grid@dims, 3L))
+    for (k in 1:3) {
+      field[, , , k] <- array(disp[, k], dim = grid@dims)
+    }
+    field
+  }
+
+  iso_grid <- grid_spec(dims = c(13L, 13L, 13L), affine = diag(4), domain = "iso")
+
+  aniso_affine <- diag(4)
+  aniso_affine[1:3, 1:3] <- diag(c(2, 3, 4))
+  aniso_grid <- grid_spec(dims = c(7L, 5L, 4L), affine = aniso_affine, domain = "aniso")
+
+  iso_morph <- warp_from_field("src", "iso", build_field(iso_grid),
+                               grid = iso_grid, representation = "displacements")
+  aniso_morph <- warp_from_field("src", "aniso", build_field(aniso_grid),
+                                 grid = aniso_grid, representation = "displacements")
+
+  coords <- matrix(c(
+    4, 6, 4,
+    6, 3, 8
+  ), ncol = 3, byrow = TRUE)
+
+  jac_iso <- jacobian(iso_morph, coords)
+  jac_aniso <- jacobian(aniso_morph, coords)
+
+  expect_equal(jac_iso[1], expected, tolerance = 1e-6)
+  expect_equal(jac_iso[2], expected, tolerance = 1e-6)
+  expect_equal(jac_aniso[1], expected, tolerance = 1e-6)
+  expect_equal(jac_aniso[2], expected, tolerance = 1e-6)
+  expect_equal(jac_aniso@values, jac_iso@values, tolerance = 1e-6)
+
+  expect_equal(jacobian_det(iso_morph, coords),
+               rep(expected_det, nrow(coords)),
+               tolerance = 1e-6)
+  expect_equal(jacobian_det(aniso_morph, coords),
+               rep(expected_det, nrow(coords)),
+               tolerance = 1e-6)
+})
+
 # ==============================================================================
 # MORPHISM PATH JACOBIAN (CHAIN RULE)
 # ==============================================================================

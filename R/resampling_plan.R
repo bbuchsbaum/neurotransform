@@ -70,9 +70,10 @@ make_resampling_plan <- function(morphism, source_grid, target_grid,
                   (identical(m@warp_type, "fsl_coef") || identical(m@warp_type, "ants_h5")),
                 logical(1)))
   if (can_flatten) {
-    steps <- vector("list", length(path))
-    for (i in seq_along(path)) {
-      m <- path[[i]]
+    path_pullback <- rev(path)
+    steps <- vector("list", length(path_pullback))
+    for (i in seq_along(path_pullback)) {
+      m <- path_pullback[[i]]
       if (morphism_kind(m) == "affine3d") {
         steps[[i]] <- list(kind = "affine", matrix = m@matrix)
       } else {
