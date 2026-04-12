@@ -1,0 +1,477 @@
+---
+title: "Introduction to neurotransform"
+author: "Brad Buchsbaum"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to neurotransform}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+library(neurotransform)
+```
+
+## Overview
+
+**neurotransform** is a lightweight, self-contained R library for geometric transforms in neuroimaging. It serves as a transform kernel for spatial operations on MRI/CT-derived data, emphasizing correctness, composability, and mathematical elegance.
+
+The package provides:
+
+- **Affine transformations**: rotation, translation, scaling, and shear
+- **Nonlinear warps**: displacement fields from registration tools
+- **Volume-to-surface mappings**: projecting volumetric data onto cortical meshes
+- **Surface-to-surface mappings**: inter-mesh correspondence via spherical registration
+- **Multi-tool support**: ANTs, FSL, AFNI, and FreeSurfer formats
+
+### Design Philosophy
+
+neurotransform is built around category-theoretic concepts, treating coordinate transformations as *morphisms* between spatial domains. This approach provides:
+1. **Clean composition**: transforms combine naturally via `compose()`
+2. **Invertibility tracking**: each transform knows whether it can be inverted exactly or approximately
+3. **Pullback semantics**: consistent convention where morphisms map target coordinates back to source coordinates
+
+## Core Concepts
+
+### What is a Morphism?
+
+In neurotransform, a **morphism** represents a coordinate transformation between two spatial domains. The key insight is that all transforms use *pullback semantics*: a morphism from domain A to domain B maps coordinates in B back to coordinates in A.
+This convention is natural for image resampling. When you want to create a new image in space B from data in space A, you need to know: "for each voxel in B, where should I sample from A?" The morphism answers exactly this question.
+
+```{r}
+# Create an affine morphism from "native" space to "mni" space
+aff <- Affine3DMorphism("native", "mni", matrix = affine_matrix)
+
+# Transform coordinates: given coords in MNI, find corresponding coords in native
+native_coords <- transform(aff, mni_coords)
+```
+
+### The Morphism Hierarchy
+
+neurotransform provides five concrete morphism types:
+| Morphism Type | Purpose | Invertible? |
+|---------------|---------|-------------|
+| `IdentityMorphism` | Maps a domain to itself | Exact |
+| `Affine3DMorphism` | Linear 3D transformations | Exact |
+| `Warp3DMorphism` | Nonlinear deformation fields | Approximate (requires inverse warp) |
+| `VolToSurfMorphism` | Volume → surface projection | Adjoint only |
+| `SurfToSurfMorphism` | Surface mesh registration | Approximate |
+
+## Quick Start
+
+### Creating Morphisms
+
+```{r}
+library(neurotransform)
+
+# Identity morphism
+id <- IdentityMorphism("my_space")
+
+# Affine morphism with a 4x4 transformation matrix
+mat <- diag(4)
+mat[1:3, 4] <- c(10, 20, 30)  # translation
+aff <- Affine3DMorphism("native", "template", matrix = mat)
+
+# Warp morphism from a displacement field file
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "template",
+  warp_path = "path/to/warp.nii.gz",
+  warp_type = "ants"
+)
+```
+
+### Transforming Coordinates
+
+```{r}
+# Single point
+coords <- matrix(c(0, 0, 0), ncol = 3)
+result <- transform(aff, coords)
+
+# Multiple points
+coords <- matrix(c(
+  0, 0, 0,
+  10, 20, 30,
+  -5, 15, 25
+), ncol = 3, byrow = TRUE)
+result <- transform(aff, coords)
+```
+
+### Composing Transforms
+
+One of neurotransform's strengths is elegant composition. Multiple transforms can be chained together:
+
+```{r}
+# Two affine transforms
+aff1 <- Affine3DMorphism("native", "intermediate", matrix = mat1)
+aff2 <- Affine3DMorphism("intermediate", "template", matrix = mat2)
+
+# Compose them
+composed <- compose(aff1, aff2)
+
+# Apply the composed transform
+result <- transform(composed, coords)
+
+# Equivalent to applying sequentially:
+step1 <- transform(aff2, coords)
+step2 <- transform(aff1, step1)
+```
+
+When composing two affine transforms, neurotransform automatically fuses them into a single affine (multiplying the matrices). For mixed types, it creates a `MorphismPath`:
+
+```{r}
+# Mixed composition creates a path
+aff <- Affine3DMorphism("native", "intermediate", matrix = mat)
+warp <- Warp3DMorphism("intermediate", "template", warp_path = "warp.nii.gz")
+
+path <- compose(aff, warp)  # Returns MorphismPath
+result <- transform(path, coords)
+```
+
+### Inverting Transforms
+
+```{r}
+# Invert an affine (exact)
+inv_aff <- invert(aff)
+
+# Check if a transform is invertible
+is_invertible(aff)  # TRUE for affine
+is_invertible(warp)  # Depends on whether inverse_path is available
+
+# For non-invertible transforms, use adjoint if available
+adj <- adjoint(vol2surf_morphism)
+```
+
+## Working with Neuroimaging Tools
+
+### ANTs Transforms
+
+ANTs outputs transforms in LPS (Left-Posterior-Superior) coordinates. neurotransform handles this automatically:
+
+```{r}
+# Load ANTs composite transform (H5 format)
+morph <- Warp3DMorphism(
+  source = "native",
+  target = "mni",
+  warp_path = "sub-01_Composite.h5",
+  warp_type = "ants_h5"
+)
+
+# Load ANTs NIfTI warp
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "mni",
+  warp_path = "sub-01_1Warp.nii.gz",
+  warp_type = "ants"
+)
+
+# With inverse path for bidirectional mapping
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "mni",
+  warp_path = "sub-01_1Warp.nii.gz",
+  warp_type = "ants",
+  inverse_path = "sub-01_1InverseWarp.nii.gz"
+)
+```
+
+### FSL Transforms
+
+FSL FLIRT produces affine matrices in scaled voxel coordinates:
+
+```{r}
+# Load FSL FLIRT affine
+# Requires source and target image affines for proper conversion
+fsl_aff <- fsl_flirt_to_internal_affine(
+  "flirt.mat",
+  source_affine = src_img_affine,
+  target_affine = tgt_img_affine
+)
+
+# Create morphism
+aff <- Affine3DMorphism("native", "standard", matrix = fsl_aff)
+
+# FSL FNIRT warps
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "mni",
+  warp_path = "fnirt_warp.nii.gz",
+  warp_type = "fsl"
+)
+```
+
+### AFNI Transforms
+
+AFNI uses RAI coordinates for affines and LPS for warps:
+
+```{r}
+# Load AFNI affine (.aff12.1D file)
+afni_mat <- afni_read_aff12("anat.aff12.1D")
+ras_mat <- afni_aff12_to_ras(afni_mat)
+aff <- Affine3DMorphism("native", "template", matrix = ras_mat)
+
+# AFNI 3dQwarp output
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "template",
+  warp_path = "WARP+tlrc.nii.gz",
+  warp_type = "afni"
+)
+```
+
+### FreeSurfer Coordinates
+
+FreeSurfer uses tkRAS coordinates offset from scanner RAS:
+
+```{r}
+# Convert FreeSurfer tkRAS to scanner RAS
+scanner_ras <- tkras_to_ras(tkras_coords, c_ras_offset)
+
+# Convert back
+tkras <- ras_to_tkras(scanner_ras, c_ras_offset)
+```
+
+## Resampling Data
+
+### Volume Samplers
+
+Samplers encapsulate data with an interpolation method:
+
+```{r}
+# Create a volume sampler
+sampler <- volume_sampler(
+  data = volume_array,
+  affine = voxel_to_world_matrix,
+  method = "linear",
+  outside = NA_real_
+)
+
+# Resample through a morphism
+target_coords <- grid_coords(target_grid)
+resampled_values <- resample(sampler, morphism = morph, coords = target_coords)
+```
+
+### Grid Specifications
+
+Define the geometry of your output space:
+
+```{r}
+# Create a grid specification
+target_grid <- grid_spec(
+  dims = c(182, 218, 182),
+  affine = mni_affine_matrix,
+  domain = "mni"
+)
+
+# Get world coordinates for all voxels in the grid
+coords <- grid_coords(target_grid)
+```
+
+### Resampling Plans
+
+For repeated resampling with the same geometry, precompute a plan:
+
+```{r}
+# Create a resampling plan
+plan <- make_resampling_plan(
+  morphism = morph,
+  source_grid = src_grid,
+  target_grid = tgt_grid,
+  interpolation = "linear",
+  reuse_count = 10L
+)
+
+# Apply to multiple volumes efficiently
+for (vol in volume_list) {
+  result <- apply_resampling_plan(plan, source_data = vol, outside = NA_real_)
+}
+```
+
+## Jacobian Determinants
+
+The Jacobian determinant quantifies local volume change under a transformation:
+
+```{r}
+# Compute Jacobian field at specific coordinates
+jac_field <- jacobian(morph, coords = test_coords)
+
+# Extract determinants
+dets <- det(jac_field)
+
+# For volume modulation during resampling
+resampled <- resample(sampler, morphism = morph, coords = coords, modulate = "jacobian")
+
+# Create a Jacobian determinant volume
+jac_vol <- jacobian_det_field(morph, grid = target_grid)
+```
+
+Log-Jacobian values are useful for statistical analysis:
+
+```{r}
+log_jac <- jacobian_det(morph, coords = coords, log = TRUE)
+```
+
+## Volume-to-Surface Mapping
+
+Project volumetric data onto cortical surfaces:
+
+```{r}
+# Create volume-to-surface morphism
+vol2surf <- VolToSurfMorphism(
+  source = "volume",
+  target = "surface",
+  method = "ribbon",
+  ribbon_inner = "lh.white",
+  ribbon_outer = "lh.pial",
+  n_ribbon_samples = 6L
+)
+
+# Transform surface coordinates to volume coordinates
+vol_coords <- transform(vol2surf, surface_vertices)
+
+# Or use the adjoint for backprojection (surface values to volume)
+backproject_fn <- adjoint(vol2surf)
+```
+
+Sampling methods:
+
+- `"trilinear"`: Direct trilinear interpolation at vertex coordinates
+- `"ribbon"`: Average samples along the cortical ribbon (white to pial)
+- `"mid_thickness"`: Sample at midpoint between surfaces
+- `"nearest"`: Nearest voxel value
+
+## Coordinate Conventions
+
+neurotransform uses RAS (Right-Anterior-Superior) as its internal coordinate system. Utility functions handle conversions:
+
+```{r}
+# ANTs/ITK use LPS
+ras_coords <- lps_to_ras(lps_coords)
+lps_coords <- ras_to_lps(ras_coords)
+
+# FreeSurfer tkRAS
+scanner_ras <- tkras_to_ras(tkras, c_ras)
+tkras <- ras_to_tkras(scanner_ras, c_ras)
+
+# Apply any affine matrix to coordinates
+transformed <- apply_affine_to_coords(coords, affine_4x4)
+```
+
+## Affine Utilities
+
+### Building Affine Matrices
+
+Construct affines from components:
+
+```{r}
+# Build from translation, rotation, scale
+mat <- build_affine_matrix(
+  translation = c(10, 20, 30),
+  scales = c(1, 1, 1),
+  angles = c(0, 0, pi/4),  # Z-Y-X rotation order
+  shears = c(0, 0, 0),
+  anchor = c(0, 0, 0)
+)
+```
+
+### Decomposing Affine Matrices
+
+Extract components from an existing matrix:
+
+```{r}
+components <- decompose_affine_matrix(affine_4x4)
+# Returns: translation, rotation_matrix, scales, shears, angles
+```
+
+## Common Workflows
+
+### Workflow 1: Register Native to Template
+
+```{r}
+library(neurotransform)
+
+# Load the warp from ANTs registration
+warp <- Warp3DMorphism(
+  source = "native",
+  target = "mni",
+  warp_path = "sub01_Composite.h5",
+  warp_type = "ants_h5"
+)
+
+# Define target grid
+mni_grid <- grid_spec(dims = c(182, 218, 182), affine = mni_affine)
+
+# Create sampler for native image
+native_sampler <- volume_sampler(native_data, native_affine, method = "linear")
+
+# Resample
+target_coords <- grid_coords(mni_grid)
+warped_values <- resample(native_sampler, morphism = warp, coords = target_coords)
+warped_volume <- array(warped_values, dim = mni_grid@dims)
+```
+
+### Workflow 2: Transform ROI Coordinates
+
+```{r}
+# ROI coordinates in native space
+roi_coords <- matrix(c(
+  45, 60, 30,
+  48, 62, 32,
+  50, 58, 28
+), ncol = 3, byrow = TRUE)
+
+# Load transform
+warp <- Warp3DMorphism("native", "mni", "warp.nii.gz", warp_type = "ants")
+
+# For native → MNI coordinates, we need the inverse
+# (because pullback maps target → source)
+inv_warp <- Warp3DMorphism("mni", "native", "InverseWarp.nii.gz", warp_type = "ants")
+mni_coords <- transform(inv_warp, roi_coords)
+```
+### Workflow 3: Chain Multiple Transforms
+
+```{r}
+# Native → Freesurfer → MNI
+native_to_fs <- Affine3DMorphism("native", "freesurfer", mat1)
+fs_to_mni <- Affine3DMorphism("freesurfer", "mni", mat2)
+
+# Compose into a path
+path <- compose(native_to_fs, fs_to_mni)
+
+# Apply to coordinates
+mni_coords <- transform(path, native_coords)
+
+# Verify domains
+source_of(path)  # "native"
+target_of(path)  # "mni"
+```
+
+## Performance Tips
+
+1. **Use resampling plans** for repeated operations with the same geometry
+2. **Compose transforms** before applying to leverage automatic fusion
+3. **Choose appropriate interpolation**: "linear" is fast, "cubic" is smoother but slower
+4. **Lazy loading**: warp fields are loaded on first use and cached
+
+## Summary
+
+neurotransform provides a mathematically principled approach to neuroimaging coordinate transforms with:
+
+- **Consistent pullback semantics** across all morphism types
+- **Automatic handling** of tool-specific coordinate conventions
+- **Elegant composition** with intelligent optimization
+- **Full Jacobian support** for volume change quantification
+
+The package focuses on being a correct, minimal transform kernel that other neuroimaging tools can build upon.
+
+## Further Reading
+
+- Package documentation: `help(package = "neurotransform")`
+- GitHub repository: https://github.com/bbuchsbaum/neurotransform
+- For higher-level neuroimaging workflows, see the `neuroim2` package
