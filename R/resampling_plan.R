@@ -143,8 +143,7 @@ apply_resampling_plan <- function(plan, source_data, outside = NA_real_,
   if (is.null(plan$handle) || !identical(modulate, "none")) {
     # Fall back to existing path when modulation is required
     sampler <- volume_sampler(source_data, affine = plan$source_grid@affine,
-                              method = plan$interpolation, outside = outside,
-                              domain = source_of(plan$morphism))
+                              method = plan$interpolation, outside = outside)
     vals <- resample(sampler, morphism = plan$morphism,
                      coords = plan$target_coords, modulate = modulate)
     tgt_dims <- plan$target_grid@dims

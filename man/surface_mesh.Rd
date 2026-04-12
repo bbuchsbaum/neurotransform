@@ -4,14 +4,12 @@
 \alias{surface_mesh}
 \title{Construct a surface mesh}
 \usage{
-surface_mesh(vertices, faces = NULL, domain = NULL)
+surface_mesh(vertices, faces = NULL)
 }
 \arguments{
 \item{vertices}{Numeric matrix with 3 columns (V x 3)}
 
 \item{faces}{Optional matrix with 3 columns (F x 3), 0- or 1-based indices}
-
-\item{domain}{Optional domain identifier}
 }
 \value{
 SurfaceMesh object

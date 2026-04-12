@@ -70,9 +70,7 @@ surface_resampling_plan <- function(reference, moving,
       n_moving = as.integer(n_mov),
       method = method,
       spherical = isTRUE(spherical),
-      radius = as.numeric(radius),
-      reference_domain = ref@domain,
-      moving_domain = mov@domain
+      radius = as.numeric(radius)
     ),
     class = "SurfaceResamplingPlan"
   )

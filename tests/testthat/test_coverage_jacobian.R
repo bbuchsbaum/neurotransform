@@ -240,11 +240,11 @@ test_that("Warp3DMorphism jacobian respects world scaling on anisotropic grids",
     field
   }
 
-  iso_grid <- grid_spec(dims = c(13L, 13L, 13L), affine = diag(4), domain = "iso")
+  iso_grid <- grid_spec(dims = c(13L, 13L, 13L), affine = diag(4))
 
   aniso_affine <- diag(4)
   aniso_affine[1:3, 1:3] <- diag(c(2, 3, 4))
-  aniso_grid <- grid_spec(dims = c(7L, 5L, 4L), affine = aniso_affine, domain = "aniso")
+  aniso_grid <- grid_spec(dims = c(7L, 5L, 4L), affine = aniso_affine)
 
   iso_morph <- warp_from_field("src", "iso", build_field(iso_grid),
                                grid = iso_grid, representation = "displacements")

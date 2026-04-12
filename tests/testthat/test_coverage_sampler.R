@@ -18,7 +18,6 @@ test_that("Sampler show method works", {
 test_that("Sampler prototype has default values", {
   s <- new("Sampler")
 
-  expect_equal(s@domain, "")
   expect_equal(s@method, "linear")
   expect_equal(length(s@dims), 0)
 })
@@ -41,12 +40,6 @@ test_that("grid_spec creates valid Grid", {
   expect_s4_class(grid, "Grid")
   expect_equal(grid@dims, c(5L, 6L, 7L))
   expect_equal(grid@affine, diag(4))
-  expect_true(nzchar(grid@domain))
-})
-
-test_that("grid_spec accepts custom domain", {
-  grid <- grid_spec(c(5, 5, 5), diag(4), domain = "custom_domain")
-  expect_equal(grid@domain, "custom_domain")
 })
 
 test_that("grid_coords returns correct world coordinates", {
@@ -258,7 +251,7 @@ test_that("surface_sampler handles matrix data", {
 
 test_that("resample works with identity morphism", {
   vol <- array(1:27, dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "test")
+  sampler <- volume_sampler(vol, affine = diag(4))
   morph <- IdentityMorphism("test")
 
   coords <- matrix(c(0, 0, 0, 1, 1, 1), ncol = 3, byrow = TRUE)
@@ -269,9 +262,9 @@ test_that("resample works with identity morphism", {
 
 test_that("resample works with Grid input", {
   vol <- array(1:27, dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "test")
+  sampler <- volume_sampler(vol, affine = diag(4))
   morph <- IdentityMorphism("test")
-  grid <- grid_spec(c(2, 2, 2), diag(4), domain = "test")
+  grid <- grid_spec(c(2, 2, 2), diag(4))
 
   result <- resample(sampler, morph, grid)
 
@@ -280,7 +273,7 @@ test_that("resample works with Grid input", {
 
 test_that("resample with jacobian modulation", {
   vol <- array(rep(1, 27), dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "a")
+  sampler <- volume_sampler(vol, affine = diag(4))
 
   # Scaling morphism: det = 8
   mat <- diag(c(2, 2, 2, 1))
@@ -296,7 +289,7 @@ test_that("resample with jacobian modulation", {
 
 test_that("resample with sqrt_jacobian modulation", {
   vol <- array(rep(1, 27), dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "a")
+  sampler <- volume_sampler(vol, affine = diag(4))
 
   mat <- diag(c(2, 2, 2, 1))
   morph <- Affine3DMorphism("a", "b", mat)
@@ -306,16 +299,6 @@ test_that("resample with sqrt_jacobian modulation", {
 
   # sqrt(8) = 2.83...
   expect_equal(result_sqrt, sqrt(8), tolerance = 1e-6)
-})
-
-test_that("resample warns on domain mismatch", {
-  vol <- array(1:27, dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "domain_a")
-  morph <- IdentityMorphism("domain_b")
-
-  coords <- matrix(c(1, 1, 1), ncol = 3)
-
-  expect_warning(resample(sampler, morph, coords), "domain")
 })
 
 # ==============================================================================

@@ -17,7 +17,5 @@ Lightweight mesh reference for surface operations.
 \item{\code{coords}}{Numeric matrix (V x 3) of vertices}
 
 \item{\code{faces}}{Integer matrix (F x 3) of 0-based triangle indices}
-
-\item{\code{domain}}{Character domain hash}
 }}
 

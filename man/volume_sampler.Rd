@@ -8,8 +8,7 @@ volume_sampler(
   data,
   affine = NULL,
   method = c("linear", "nearest", "cubic"),
-  outside = NA_real_,
-  domain = NULL
+  outside = NA_real_
 )
 }
 \arguments{

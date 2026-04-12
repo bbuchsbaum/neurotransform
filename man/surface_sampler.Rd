@@ -8,8 +8,7 @@ surface_sampler(
   vertices,
   data,
   faces = NULL,
-  method = c("nearest", "barycentric"),
-  domain = NULL
+  method = c("nearest", "barycentric")
 )
 }
 \arguments{
@@ -20,8 +19,6 @@ surface_sampler(
 \item{faces}{Face indices (F x 3, optional)}
 
 \item{method}{"nearest" or "barycentric"}
-
-\item{domain}{Optional domain hash}
 }
 \value{
 Sampler object

@@ -14,7 +14,6 @@ test_that("sampled_points constructs lightweight irregular references", {
   pts <- sampled_points(coords)
   expect_s4_class(pts, "SampledPoints")
   expect_equal(pts@coords, coords)
-  expect_true(nzchar(pts@domain))
 })
 
 test_that("surface_mesh accepts 1-based faces and stores 0-based faces", {
@@ -162,20 +161,6 @@ test_that("volume_sampler returns outside value for out-of-bounds", {
   expect_equal(result, c(-99, -99))
 })
 
-test_that("volume_sampler stores domain hash", {
-  vol <- array(1, dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4))
-
-  expect_true(nzchar(sampler@domain))
-})
-
-test_that("volume_sampler with custom domain", {
-  vol <- array(1, dim = c(3, 3, 3))
-  sampler <- volume_sampler(vol, affine = diag(4), domain = "my_custom_domain")
-
-  expect_equal(sampler@domain, "my_custom_domain")
-})
-
 # =============================================================================
 # SURFACE SAMPLER TESTS
 # =============================================================================
@@ -195,19 +180,18 @@ test_that("surface_sampler creates nearest sampler", {
   expect_equal(sampler@vdim, 1L)
 })
 
-test_that("surface_sampler accepts SurfaceMesh and infers faces/domain", {
+test_that("surface_sampler accepts SurfaceMesh and infers faces", {
   verts <- matrix(c(
     0, 0, 0,
     1, 0, 0,
     0, 1, 0
   ), ncol = 3, byrow = TRUE)
   faces <- matrix(c(0, 1, 2), ncol = 3, byrow = TRUE)
-  mesh <- surface_mesh(verts, faces, domain = "mesh_domain")
+  mesh <- surface_mesh(verts, faces)
   data <- c(10, 20, 30)
 
   sampler <- surface_sampler(mesh, data, method = "nearest")
   expect_s4_class(sampler, "Sampler")
-  expect_equal(sampler@domain, "mesh_domain")
 })
 
 test_that("surface_sampler errors without faces for barycentric", {
@@ -276,14 +260,6 @@ test_that("surface_sampler nearest returns closest vertex data", {
   expect_equal(result, c(100, 200, 300))
 })
 
-test_that("surface_sampler stores domain hash", {
-  verts <- matrix(c(0, 0, 0, 1, 0, 0, 0, 1, 0), ncol = 3, byrow = TRUE)
-  data <- c(1, 2, 3)
-  sampler <- surface_sampler(verts, data)
-
-  expect_true(nzchar(sampler@domain))
-})
-
 # =============================================================================
 # GRID TESTS
 # =============================================================================
@@ -298,16 +274,10 @@ test_that("grid_spec creates Grid with correct properties", {
   expect_s4_class(grid, "Grid")
   expect_equal(grid@dims, c(10L, 20L, 30L))
   expect_equal(grid@affine, aff)
-  expect_true(nzchar(grid@domain))
 })
 
 test_that("grid_spec validates affine matrix", {
   expect_error(grid_spec(c(3, 3, 3), matrix(1:9, 3, 3)), "4x4")
-})
-
-test_that("grid_spec with custom domain", {
-  grid <- grid_spec(c(3L, 3L, 3L), diag(4), domain = "my_grid_domain")
-  expect_equal(grid@domain, "my_grid_domain")
 })
 
 test_that("grid_coords returns correct number of coordinates", {

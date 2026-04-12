@@ -19,8 +19,6 @@ Sampler: data + interpolation encapsulation
 \describe{
 \item{\code{evaluate}}{Function: (coords) -> values}
 
-\item{\code{domain}}{Character: domain hash}
-
 \item{\code{dims}}{Integer: data dimensions}
 
 \item{\code{vdim}}{Integer: output dimensionality per point}

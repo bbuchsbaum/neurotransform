@@ -21,7 +21,7 @@ test_that("warp transform plugs into resample pipeline", {
   }
 
   sampler <- volume_sampler(vol, affine = diag(4), method = "linear",
-                            outside = -99, domain = "src")
+                            outside = -99)
   coords <- rbind(c(1, 1, 1), c(0.5, 0.5, 0.5))
 
   src_coords <- transform(morph, coords)

@@ -4,14 +4,12 @@
 \alias{grid_spec}
 \title{Create a grid specification}
 \usage{
-grid_spec(dims, affine, domain = NULL)
+grid_spec(dims, affine)
 }
 \arguments{
 \item{dims}{Integer vector of dimensions}
 
 \item{affine}{4x4 voxel-to-world matrix}
-
-\item{domain}{Optional domain hash}
 }
 \value{
 Grid object

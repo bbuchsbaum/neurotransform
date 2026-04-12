@@ -3,7 +3,7 @@ test_that("deformation_field builds array and jacobian map", {
   inv_path <- system.file("extdata/ants/sample_ANTs_1InverseWarp.nii.gz", package = "neurotransform")
   morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "ants", inverse_path = inv_path)
 
-  grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4), domain = "tgt")
+  grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4))
   field <- deformation_field(morph, grid, with_jacobian = TRUE)
 
   expect_s3_class(field, "DeformationField")

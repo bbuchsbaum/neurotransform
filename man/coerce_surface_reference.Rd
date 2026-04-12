@@ -14,7 +14,7 @@ coerce_surface_reference(x, require_faces = FALSE, apply_surf_to_world = TRUE)
 \item{apply_surf_to_world}{Logical; apply SurfaceGeometry surf_to_world}
 }
 \value{
-List with \code{vertices}, \code{faces}, and \code{domain}
+List with \code{vertices} and \code{faces}
 }
 \description{
 Supports plain matrices, internal SurfaceMesh/SampledPoints, and optional

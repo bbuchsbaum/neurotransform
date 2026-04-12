@@ -15,7 +15,5 @@ Lightweight container for point samples in world coordinates.
 
 \describe{
 \item{\code{coords}}{Numeric matrix (N x 3)}
-
-\item{\code{domain}}{Character domain hash}
 }}
 

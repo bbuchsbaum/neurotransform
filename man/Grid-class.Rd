@@ -20,7 +20,5 @@ Grid: regular coordinate grid specification
 \item{\code{dims}}{Integer: grid dimensions}
 
 \item{\code{affine}}{4x4 voxel-to-world matrix}
-
-\item{\code{domain}}{Character: domain hash}
 }}
 

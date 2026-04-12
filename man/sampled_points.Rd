@@ -4,12 +4,10 @@
 \alias{sampled_points}
 \title{Construct sampled points}
 \usage{
-sampled_points(coords, domain = NULL)
+sampled_points(coords)
 }
 \arguments{
 \item{coords}{Numeric matrix with 3 columns (N x 3)}
-
-\item{domain}{Optional domain identifier}
 }
 \value{
 SampledPoints object

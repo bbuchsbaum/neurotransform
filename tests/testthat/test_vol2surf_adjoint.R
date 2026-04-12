@@ -1,5 +1,5 @@
 test_that("backproject_surface_to_volume matches adjoint() for VolToSurfMorphism", {
-  grid <- grid_spec(dims = c(2L, 2L, 2L), affine = diag(4), domain = "vol")
+  grid <- grid_spec(dims = c(2L, 2L, 2L), affine = diag(4))
 
   coords <- matrix(c(
     0.25, 0.25, 0.25,
@@ -18,7 +18,7 @@ test_that("backproject_surface_to_volume matches adjoint() for VolToSurfMorphism
 })
 
 test_that("VolToSurf adjoint satisfies inner-product identity for linear sampling", {
-  grid <- grid_spec(dims = c(2L, 2L, 2L), affine = diag(4), domain = "vol")
+  grid <- grid_spec(dims = c(2L, 2L, 2L), affine = diag(4))
   coords <- matrix(c(
     0.25, 0.25, 0.25,
     0.75, 0.75, 0.75

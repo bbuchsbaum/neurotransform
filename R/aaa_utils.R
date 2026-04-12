@@ -106,27 +106,26 @@ validate_numeric_vector <- function(x, len, name = "vector") {
 #' @param x Surface-like object
 #' @param require_faces Logical; whether faces must be present
 #' @param apply_surf_to_world Logical; apply SurfaceGeometry surf_to_world
-#' @return List with \code{vertices}, \code{faces}, and \code{domain}
+#' @return List with \code{vertices} and \code{faces}
 #' @keywords internal
 coerce_surface_reference <- function(x, require_faces = FALSE, apply_surf_to_world = TRUE) {
   if (is.matrix(x)) {
     if (!is.numeric(x) || ncol(x) != 3L || !all(is.finite(x))) {
       stop("Surface vertices must be a finite numeric matrix with 3 columns")
     }
-    return(list(vertices = x, faces = NULL, domain = ""))
+    return(list(vertices = x, faces = NULL))
   }
 
   if (inherits(x, "SurfaceMesh")) {
-    return(list(vertices = x@coords, faces = x@faces, domain = x@domain %||% ""))
+    return(list(vertices = x@coords, faces = x@faces))
   }
   if (inherits(x, "SampledPoints")) {
-    return(list(vertices = x@coords, faces = NULL, domain = x@domain %||% ""))
+    return(list(vertices = x@coords, faces = NULL))
   }
 
   if (inherits(x, "SurfaceGeometry")) {
     verts <- NULL
     fcs <- NULL
-    dom <- ""
 
     # Fast path for standard S4 SurfaceGeometry internals.
     if (isS4(x) && methods::.hasSlot(x, "mesh")) {
@@ -143,11 +142,6 @@ coerce_surface_reference <- function(x, require_faces = FALSE, apply_surf_to_wor
           verts <- apply_affine(verts, stw)
         }
       }
-      if (methods::.hasSlot(x, "hemi") || methods::.hasSlot(x, "label")) {
-        hemi <- if (methods::.hasSlot(x, "hemi")) as.character(methods::slot(x, "hemi")) else ""
-        label <- if (methods::.hasSlot(x, "label")) as.character(methods::slot(x, "label")) else ""
-        dom <- compute_hash("SurfaceGeometry", hemi, label)
-      }
     }
 
     # Allow light-weight list-like SurfaceGeometry objects in tests/integration glue.
@@ -163,9 +157,6 @@ coerce_surface_reference <- function(x, require_faces = FALSE, apply_surf_to_wor
           is.matrix(x$surf_to_world) && identical(dim(x$surf_to_world), c(4L, 4L))) {
         verts <- apply_affine(verts, x$surf_to_world)
       }
-      hemi <- as.character(x$hemi %||% "")
-      label <- as.character(x$label %||% "")
-      if (nzchar(hemi) || nzchar(label)) dom <- compute_hash("SurfaceGeometry", hemi, label)
     }
 
     # Fallback via neurosurf accessors if needed.
@@ -207,7 +198,7 @@ coerce_surface_reference <- function(x, require_faces = FALSE, apply_surf_to_wor
       stop("SurfaceGeometry does not contain usable triangle faces")
     }
 
-    return(list(vertices = verts, faces = fcs, domain = dom))
+    return(list(vertices = verts, faces = fcs))
   }
 
   stop("Unsupported surface reference type: ", paste(class(x), collapse = "/"))

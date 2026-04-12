@@ -19,7 +19,7 @@ test_that("triplet assembly builds sparse matrix and rejects out-of-bounds", {
 
 test_that("resample applies jacobian modulation factors", {
   vol <- array(1, dim = c(2L, 2L, 2L))
-  sampler <- volume_sampler(vol, method = "nearest", domain = "a")
+  sampler <- volume_sampler(vol, method = "nearest")
   morph <- Affine3DMorphism("a", "a", diag(c(0.5, 0.5, 0.5, 1)))
   grid <- grid_from_data(vol)
 

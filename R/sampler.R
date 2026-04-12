@@ -22,7 +22,6 @@ NULL
 #' Sampler: data + interpolation encapsulation
 #'
 #' @slot evaluate Function: (coords) -> values
-#' @slot domain Character: domain hash
 #' @slot dims Integer: data dimensions
 #' @slot vdim Integer: output dimensionality per point
 #' @slot bounds List: min/max coordinate bounds
@@ -33,7 +32,6 @@ NULL
 setClass("Sampler",
   slots = c(
     evaluate = "function",
-    domain = "character",
     dims = "integer",
     vdim = "integer",
     bounds = "list",
@@ -42,7 +40,6 @@ setClass("Sampler",
   ),
   prototype = list(
     evaluate = function(coords) NA,
-    domain = "",
     dims = integer(0),
     vdim = 1L,
     bounds = list(min = c(-Inf, -Inf, -Inf), max = c(Inf, Inf, Inf)),
@@ -68,19 +65,16 @@ setMethod("show", "Sampler", function(object) {
 #'
 #' @slot dims Integer: grid dimensions
 #' @slot affine 4x4 voxel-to-world matrix
-#' @slot domain Character: domain hash
 #' @param object A Grid object (for show method)
 #' @export
 setClass("Grid",
   slots = c(
     dims = "integer",
-    affine = "matrix",
-    domain = "character"
+    affine = "matrix"
   ),
   prototype = list(
     dims = c(1L, 1L, 1L),
-    affine = diag(4),
-    domain = ""
+    affine = diag(4)
   )
 )
 
@@ -103,16 +97,13 @@ setMethod("show", "Grid", function(object) {
 #' Lightweight container for point samples in world coordinates.
 #'
 #' @slot coords Numeric matrix (N x 3)
-#' @slot domain Character domain hash
 #' @export
 setClass("SampledPoints",
   slots = c(
-    coords = "matrix",
-    domain = "character"
+    coords = "matrix"
   ),
   prototype = list(
-    coords = matrix(0, nrow = 0, ncol = 3),
-    domain = ""
+    coords = matrix(0, nrow = 0, ncol = 3)
   )
 )
 
@@ -122,45 +113,38 @@ setClass("SampledPoints",
 #'
 #' @slot coords Numeric matrix (V x 3) of vertices
 #' @slot faces Integer matrix (F x 3) of 0-based triangle indices
-#' @slot domain Character domain hash
 #' @export
 setClass("SurfaceMesh",
   slots = c(
     coords = "matrix",
-    faces = "matrix",
-    domain = "character"
+    faces = "matrix"
   ),
   prototype = list(
     coords = matrix(0, nrow = 0, ncol = 3),
-    faces = matrix(integer(0), nrow = 0, ncol = 3),
-    domain = ""
+    faces = matrix(integer(0), nrow = 0, ncol = 3)
   )
 )
 
 #' @rdname SampledPoints-class
 #' @export
 setMethod("show", "SampledPoints", function(object) {
-  cat(sprintf("<SampledPoints | n=%d | domain=%s>\n",
-              nrow(object@coords),
-              if (nzchar(object@domain)) object@domain else "<none>"))
+  cat(sprintf("<SampledPoints | n=%d>\n", nrow(object@coords)))
 })
 
 #' @rdname SurfaceMesh-class
 #' @export
 setMethod("show", "SurfaceMesh", function(object) {
-  cat(sprintf("<SurfaceMesh | vertices=%d | faces=%d | domain=%s>\n",
+  cat(sprintf("<SurfaceMesh | vertices=%d | faces=%d>\n",
               nrow(object@coords),
-              nrow(object@faces),
-              if (nzchar(object@domain)) object@domain else "<none>"))
+              nrow(object@faces)))
 })
 
 #' Construct sampled points
 #'
 #' @param coords Numeric matrix with 3 columns (N x 3)
-#' @param domain Optional domain identifier
 #' @return SampledPoints object
 #' @export
-sampled_points <- function(coords, domain = NULL) {
+sampled_points <- function(coords) {
   if (!is.matrix(coords)) {
     coords <- coerce_surface_reference(coords, require_faces = FALSE)$vertices
   }
@@ -168,22 +152,19 @@ sampled_points <- function(coords, domain = NULL) {
     stop("coords must be a numeric matrix with 3 columns")
   }
   if (!all(is.finite(coords))) stop("coords must contain only finite values")
-  if (is.null(domain)) domain <- compute_hash("sampled_points", coords)
-  new("SampledPoints", coords = coords, domain = domain)
+  new("SampledPoints", coords = coords)
 }
 
 #' Construct a surface mesh
 #'
 #' @param vertices Numeric matrix with 3 columns (V x 3)
 #' @param faces Optional matrix with 3 columns (F x 3), 0- or 1-based indices
-#' @param domain Optional domain identifier
 #' @return SurfaceMesh object
 #' @export
-surface_mesh <- function(vertices, faces = NULL, domain = NULL) {
+surface_mesh <- function(vertices, faces = NULL) {
   if (!is.matrix(vertices)) {
     ref <- coerce_surface_reference(vertices, require_faces = FALSE)
     if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
-    if (is.null(domain) && nzchar(ref$domain)) domain <- ref$domain
     vertices <- ref$vertices
   }
 
@@ -210,8 +191,7 @@ surface_mesh <- function(vertices, faces = NULL, domain = NULL) {
     }
   }
 
-  if (is.null(domain)) domain <- compute_hash("surface_mesh", vertices, faces0)
-  new("SurfaceMesh", coords = vertices, faces = faces0, domain = domain)
+  new("SurfaceMesh", coords = vertices, faces = faces0)
 }
 
 #' Check whether a surface mesh is approximately spherical
@@ -251,18 +231,13 @@ mesh_set_radius <- function(mesh, radius = 100) {
 #'
 #' @param dims Integer vector of dimensions
 #' @param affine 4x4 voxel-to-world matrix
-#' @param domain Optional domain hash
 #' @return Grid object
 #' @export
-grid_spec <- function(dims, affine, domain = NULL) {
+grid_spec <- function(dims, affine) {
   validate_4x4_matrix(affine, "affine")
-  if (is.null(domain)) {
-    domain <- compute_hash("grid", dims, affine)
-  }
   new("Grid",
       dims = as.integer(dims),
-      affine = affine,
-      domain = domain)
+      affine = affine)
 }
 
 #' Get world coordinates for a grid
@@ -358,7 +333,7 @@ setMethod("extract_affine", "DenseNeuroVec", function(x) {
 #' sampler@evaluate(coords)
 volume_sampler <- function(data, affine = NULL,
                            method = c("linear", "nearest", "cubic"),
-                           outside = NA_real_, domain = NULL) {
+                           outside = NA_real_) {
   method <- match.arg(method)
 
   if (is.null(affine)) {
@@ -385,10 +360,6 @@ volume_sampler <- function(data, affine = NULL,
     max = apply(corners_world, 2, max)
   )
 
-  if (is.null(domain)) {
-    domain <- compute_hash("volume", dims, affine)
-  }
-
   # Evaluate function using C++
   data_array <- as.array(data)
   evaluate_fn <- function(coords) {
@@ -403,7 +374,6 @@ volume_sampler <- function(data, affine = NULL,
 
   new("Sampler",
       evaluate = evaluate_fn,
-      domain = domain,
       dims = as.integer(dims),
       vdim = as.integer(vdim),
       bounds = bounds,
@@ -417,18 +387,15 @@ volume_sampler <- function(data, affine = NULL,
 #' @param data Vertex data (length V or V x k)
 #' @param faces Face indices (F x 3, optional)
 #' @param method "nearest" or "barycentric"
-#' @param domain Optional domain hash
 #' @return Sampler object
 #' @export
 surface_sampler <- function(vertices, data, faces = NULL,
-                            method = c("nearest", "barycentric"),
-                            domain = NULL) {
+                            method = c("nearest", "barycentric")) {
   method <- match.arg(method)
 
   if (!is.matrix(vertices)) {
     ref <- coerce_surface_reference(vertices, require_faces = FALSE)
     if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
-    if (is.null(domain) && nzchar(ref$domain)) domain <- ref$domain
     vertices <- ref$vertices
   }
 
@@ -447,10 +414,6 @@ surface_sampler <- function(vertices, data, faces = NULL,
     stop("data must have one value (or row) per vertex")
   }
 
-  if (is.null(domain)) {
-    domain <- compute_hash("surface", nv)
-  }
-
   # Build evaluate function
   evaluate_fn <- if (method == "nearest") {
     function(coords) {
@@ -465,7 +428,6 @@ surface_sampler <- function(vertices, data, faces = NULL,
 
   new("Sampler",
       evaluate = evaluate_fn,
-      domain = domain,
       dims = as.integer(nv),
       vdim = as.integer(vdim),
       bounds = list(
@@ -509,11 +471,6 @@ resample <- function(sampler, morphism, coords,
   # Handle Grid input
   if (is(coords, "Grid")) {
     coords <- grid_coords(coords)
-  }
-
-  # Domain compatibility warning
-  if (nzchar(sampler@domain) && sampler@domain != source_of(morphism)) {
-    warning("Sampler domain doesn't match morphism source")
   }
 
   # Transform coordinates (pullback)

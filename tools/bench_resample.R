@@ -6,8 +6,8 @@ suppressPackageStartupMessages(library(neurotransform))
 warp_path <- system.file("extdata/ants/sample_ANTs_1Warp.nii.gz", package = "neurotransform")
 morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "ants")
 
-src_grid <- grid_spec(dims = c(32L, 32L, 32L), affine = diag(4), domain = "src")
-tgt_grid <- grid_spec(dims = c(32L, 32L, 32L), affine = diag(4), domain = "tgt")
+src_grid <- grid_spec(dims = c(32L, 32L, 32L), affine = diag(4))
+tgt_grid <- grid_spec(dims = c(32L, 32L, 32L), affine = diag(4))
 
 vol <- array(runif(prod(src_grid@dims)), dim = src_grid@dims)
 
