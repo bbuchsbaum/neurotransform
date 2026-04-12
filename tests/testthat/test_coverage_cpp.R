@@ -112,9 +112,10 @@ test_that("cpp_apply_projector applies sparse matrix", {
   data <- matrix(c(1, 2, 3, 4, 5, 6, 7, 8, 9), nrow = 3, ncol = 3)
 
   result <- neurotransform:::cpp_apply_projector(proj, data, threads = 1)
+  expected <- as.matrix(proj %*% data)
 
   expect_equal(dim(result), dim(data))
-  expect_equal(as.matrix(result), data)
+  expect_equal(as.matrix(result), expected)
 })
 
 test_that("cpp_apply_projector applies averaging projector", {
@@ -132,9 +133,67 @@ test_that("cpp_apply_projector applies averaging projector", {
                    5, 6, 7, 8), nrow = 4, ncol = 2)
 
   result <- neurotransform:::cpp_apply_projector(proj, data, threads = 1)
+  expected <- as.matrix(proj %*% data)
 
   expect_equal(nrow(result), 2)
   expect_equal(ncol(result), 2)
+  expect_equal(as.matrix(result), expected, tolerance = 1e-12)
+})
+
+test_that("cpp_apply_projector errors when data rows do not match projector source", {
+  skip_if_not_installed("Matrix")
+
+  proj <- Matrix::sparseMatrix(i = 1:2, j = 1:2, x = c(1, 1), dims = c(2, 2))
+  data <- matrix(1:3, nrow = 3, ncol = 1)
+
+  expect_error(
+    neurotransform:::cpp_apply_projector(proj, data, threads = 1),
+    "projector expects 2 source elements"
+  )
+})
+
+test_that("cpp_apply_projector returns the same result across thread counts", {
+  skip_if_not_installed("Matrix")
+
+  set.seed(1)
+  proj <- Matrix::sparseMatrix(
+    i = c(1, 2, 3, 4, 1, 3, 5, 6),
+    j = c(1, 1, 2, 2, 3, 4, 5, 6),
+    x = runif(8),
+    dims = c(6, 6),
+    repr = "C"
+  )
+  data <- matrix(runif(6 * 8), nrow = 6, ncol = 8)
+
+  single <- neurotransform:::cpp_apply_projector(proj, data, threads = 1)
+  multi <- neurotransform:::cpp_apply_projector(proj, data, threads = 4)
+
+  expect_equal(multi, single, tolerance = 1e-12)
+})
+
+test_that("cpp_apply_projector handles realistic tall projector shapes", {
+  skip_if_not_installed("Matrix")
+  skip_on_cran()
+
+  set.seed(42)
+  n_rows <- 140000L
+  n_cols <- 32000L
+  nnz_per_row <- 2L
+
+  proj <- Matrix::sparseMatrix(
+    i = rep(seq_len(n_rows), each = nnz_per_row),
+    j = sample.int(n_cols, n_rows * nnz_per_row, replace = TRUE),
+    x = runif(n_rows * nnz_per_row),
+    dims = c(n_rows, n_cols),
+    repr = "C"
+  )
+  data <- matrix(runif(n_cols * 3L), nrow = n_cols, ncol = 3L)
+
+  result <- neurotransform:::cpp_apply_projector(proj, data, threads = 1)
+  expected <- as.matrix(proj %*% data)
+
+  expect_equal(dim(result), c(n_rows, 3L))
+  expect_equal(result, expected, tolerance = 1e-10)
 })
 
 # ==============================================================================
