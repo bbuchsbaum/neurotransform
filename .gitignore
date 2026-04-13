@@ -15,3 +15,13 @@ src/*.so
 
 # testthat snapshots
 tests/testthat/_snaps/
+
+# testthat transient failure artifacts
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds
+
+# pkgdown build output
+docs/
+
+# Local session artifacts (audit reports, notes)
+.omc/
