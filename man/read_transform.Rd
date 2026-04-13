@@ -16,7 +16,8 @@ read_transform(
 \arguments{
 \item{path}{Path or Morphism}
 
-\item{type}{Optional type hint: ants_h5, ants, fsl, afni, linear, fsl_affine, afni_affine}
+\item{type}{Optional type hint: ants_h5, ants, fsl, fsl_coef, afni, x5, linear,
+fsl_affine, afni_affine, itk_affine, lta_affine}
 
 \item{source}{Optional source id}
 

@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <limits>
 #include <unordered_map>
 #ifdef _OPENMP
   #include <omp.h>
@@ -27,6 +28,10 @@ Rcpp::List cpp_ribbon_weights(const Rcpp::NumericMatrix& inner,
                               const Rcpp::LogicalVector& mask) {
   const int n = inner.nrow();
   const int nx = dims[0], ny = dims[1], nz = dims[2];
+  const R_xlen_t nvox = static_cast<R_xlen_t>(nx) * ny * nz;
+  if (nvox > std::numeric_limits<int>::max()) {
+    Rcpp::stop("volume too large for cpp_ribbon_weights index representation");
+  }
   const bool use_mask = mask.size() == nx * ny * nz;
 
   std::vector<int> rows; rows.reserve(n * 40); // heuristic
@@ -76,7 +81,11 @@ Rcpp::List cpp_ribbon_weights(const Rcpp::NumericMatrix& inner,
               int xi = std::min(std::max(xfloor + ix, 0), nx - 1);
               int yi = std::min(std::max(yfloor + iy, 0), ny - 1);
               int zi = std::min(std::max(zfloor + iz, 0), nz - 1);
-              int lin = xi + yi * nx + zi * nx * ny; // 0-based
+              const int lin = static_cast<int>(
+                static_cast<R_xlen_t>(xi) +
+                static_cast<R_xlen_t>(yi) * nx +
+                static_cast<R_xlen_t>(zi) * nx * ny
+              ); // 0-based
               if (use_mask && (mask[lin] == FALSE || mask[lin] == NA_LOGICAL)) {
                 continue;
               }
@@ -139,7 +148,11 @@ Rcpp::List cpp_ribbon_weights(const Rcpp::NumericMatrix& inner,
             int xi = std::min(std::max(xfloor + ix, 0), nx - 1);
             int yi = std::min(std::max(yfloor + iy, 0), ny - 1);
             int zi = std::min(std::max(zfloor + iz, 0), nz - 1);
-            int lin = xi + yi * nx + zi * nx * ny;
+            const int lin = static_cast<int>(
+              static_cast<R_xlen_t>(xi) +
+              static_cast<R_xlen_t>(yi) * nx +
+              static_cast<R_xlen_t>(zi) * nx * ny
+            );
             if (use_mask && (mask[lin] == FALSE || mask[lin] == NA_LOGICAL)) {
               continue;
             }

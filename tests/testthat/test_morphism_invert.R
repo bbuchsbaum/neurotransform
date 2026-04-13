@@ -144,6 +144,20 @@ test_that("invert(Warp3DMorphism) preserves warp_type", {
   expect_equal(inv@warp_type, "fsl")
 })
 
+test_that("invert(Warp3DMorphism) preserves deformation metadata", {
+  w <- Warp3DMorphism(
+    "a", "b", "fwd.nii",
+    warp_type = "dense",
+    inverse_path = "inv.nii",
+    def_type = "absolute",
+    warp_method = "cubic"
+  )
+  inv <- invert(w)
+
+  expect_equal(inv@params$def_type, "absolute")
+  expect_equal(inv@params$warp_method, "cubic")
+})
+
 test_that("invert(Warp3DMorphism) double inversion restores paths", {
   w <- Warp3DMorphism("a", "b", "fwd.nii", warp_type = "ants",
                       inverse_path = "inv.nii")

@@ -27,6 +27,7 @@ eval_bspline_coeff_ref <- function(coords, coeff, affine) {
     u <- as.numeric(world_to_ctrl %*% c(x, 1))[1:3]
     start <- floor(u) - 1
     disp <- c(0, 0, 0)
+    wsum <- 0
     for (kz in start[3]:(start[3] + 3)) {
       if (kz < 0 || kz >= dims[3]) next
       wz <- bs3(u[3] - kz)
@@ -41,8 +42,12 @@ eval_bspline_coeff_ref <- function(coords, coeff, affine) {
           if (wx == 0) next
           w <- wx * wy * wz
           disp <- disp + w * coeff[kx + 1, ky + 1, kz + 1, ]
+          wsum <- wsum + w
         }
       }
+    }
+    if (wsum > 0) {
+      disp <- disp / wsum
     }
     out[i, ] <- x + disp
   }

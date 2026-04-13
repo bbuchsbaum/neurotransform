@@ -12,7 +12,7 @@ The best neuroimaging transform library on earth. Most elegant, most beautiful, 
 
 **Verbs are few and powerful.** We don't need twenty functions when five will do.
 
-**Nouns are clear.** `Morphism`, `Affine3D`, `Warp3D`, `VolToSurf`, `SurfToSurf`. You know what they are.
+**Nouns are clear.** The core abstractions are still `Morphism`, `Affine3DMorphism`, `Warp3DMorphism`, `VolToSurfMorphism`, and `SurfToSurfMorphism`, but the package now also ships supporting data and planning types such as `Grid`, `Sampler`, `SampledPoints`, `SurfaceMesh`, `JacobianField`, `ResamplingPlan`, and `MorphismPath`.
 
 **Convention over configuration.** RAS millimeters internally. Loaders handle the mess of FSL/AFNI/ANTs/FreeSurfer conventions so you don't have to.
 
@@ -59,7 +59,7 @@ This keeps us cleanly separated from the Domain/Geometry layer in neurofunctor.
 | Verb | Signature | What it does |
 |------|-----------|--------------|
 | **`morphism_kind`** | `morphism_kind(m)` | Returns: "identity", "affine3d", "warp3d", "vol2surf", "surf2surf" |
-| **`is_invertible`** | `is_invertible(m)` | TRUE only if `inverse_type == "exact"` |
+| **`is_invertible`** | `is_invertible(m)` | TRUE if a geometric inverse is available (`"exact"` or `"approximate"`) |
 | **`has_adjoint`** | `has_adjoint(m)` | TRUE if `adjoint()` will succeed |
 | **`source_of`** | `source_of(m)` | Source domain hash |
 | **`target_of`** | `target_of(m)` | Target domain hash |
@@ -170,7 +170,7 @@ validate_path(list(f, h))  # Error: target of morphism 1 ("B") != source of morp
 
 | Concept | Meaning | When Available | Use Case |
 |---------|---------|----------------|----------|
-| **Inverse** | Exact geometric inverse: `f⁻¹(f(x)) = x` | `inverse_type == "exact"` | Affines, warps with inverse_path |
+| **Inverse** | Geometric inverse available through `invert()` | `inverse_type %in% c("exact", "approximate")` | Affines, warps with inverse_path |
 | **Adjoint** | "Best effort" reverse mapping, not a true inverse | `inverse_type == "adjoint"` | VolToSurf backprojection |
 
 ### `is_invertible()` vs `has_adjoint()`
@@ -205,7 +205,7 @@ adjoint(warp_no_inverse)            # Error: no adjoint available
 | Value | `is_invertible()` | `has_adjoint()` | `invert()` | `adjoint()` |
 |-------|-------------------|-----------------|------------|-------------|
 | `"exact"` | TRUE | TRUE | Works | Works (same as invert) |
-| `"approximate"` | FALSE | TRUE | Error | Works |
+| `"approximate"` | TRUE | TRUE | Works | Works |
 | `"adjoint"` | FALSE | TRUE | Error | Works |
 | `"none"` | FALSE | FALSE | Error | Error |
 
@@ -405,7 +405,7 @@ Input coords (RAS) → flip to LPS → sample displacement → add to coords →
 If absolute: convert field to displacement (subtract voxel coords)
 Then: standard displacement sampling
 ```
-Plus: `detect_warp_type()` heuristic for FNIRT fields that don't declare their type.
+Plus: `detect_fnirt_def_type()` heuristic for FNIRT fields that don't declare their type.
 
 #### AFNI (RAI)
 ```
@@ -434,20 +434,12 @@ fsl_to_world(coords, src_affine, ref_affine)
 world_to_fsl(coords, src_affine, ref_affine)
 ```
 
-### Affine Loading Helpers
+### Transform IO Helpers
 
-Tool-specific affine matrix readers that return internal (RAS) convention:
-
-```r
-# FSL FLIRT matrix → internal affine
-read_flirt(mat_path, source_affine, ref_affine)
-
-# AFNI .aff12.1D → internal affine
-read_afni_aff12(path)
-
-# ANTs/ITK .txt → internal affine
-read_itk_affine(path)
-```
+The public IO surface is broader than the original kernel-only design and is
+centered on `read_transform()`, `write_transform()`, `read_linear_transform()`,
+`write_linear_transform()`, X5 helpers, and tool-aware conversion utilities such
+as `fsl_flirt_to_internal_affine()`.
 
 ### Warp Type Detection
 
@@ -455,7 +447,7 @@ For FSL FNIRT warps that might be absolute or relative:
 
 ```r
 # Heuristic detection
-detect_warp_type(warp_path)
+detect_fnirt_def_type(warp_path)
 # Returns: "relative" or "absolute"
 
 # How it works:
@@ -466,17 +458,17 @@ detect_warp_type(warp_path)
 
 ---
 
-## What We Explicitly Don't Have
+## Current Scope
 
-- No `Domain` class
-- No `Geometry` class
-- No `BrainGraph`
-- No `Projector`
-- No `Field`
-- No pathfinding
-- No ingestion pipelines
+The package is no longer just the minimal transform kernel described in the
+earliest design notes. It now ships:
 
-Those belong in neurofunctor. We're the kernel.
+- transform IO and ingestion helpers
+- warp-field and Jacobian helpers
+- grid, sampler, and surface helper classes
+- resampling plans and projector application primitives
+
+It still does **not** define a full domain graph or higher-level dataset model.
 
 ---
 
@@ -567,7 +559,7 @@ ras_coords <- tkras_to_ras(surface_coords, c_ras = c(0, 0, 0))
 
 ### Introspection (5)
 - `morphism_kind()` — "identity", "affine3d", "warp3d", "vol2surf", "surf2surf"
-- `is_invertible()` — TRUE only if `inverse_type == "exact"`
+- `is_invertible()` — TRUE if `inverse_type` is `"exact"` or `"approximate"`
 - `has_adjoint()` — TRUE if `adjoint()` will succeed
 - `source_of()` — source domain hash
 - `target_of()` — target domain hash
@@ -584,11 +576,13 @@ ras_coords <- tkras_to_ras(surface_coords, c_ras = c(0, 0, 0))
 - `fsl_to_world()` / `world_to_fsl()` — FSL scaled coords
 - `apply_affine()` / `invert_affine()` / `compose_affines()` — generic affine math
 
-### Tool-Specific Readers (4)
-- `read_flirt()` — FSL FLIRT .mat → internal affine
-- `read_afni_aff12()` — AFNI .aff12.1D → internal affine
-- `read_itk_affine()` — ANTs/ITK .txt → internal affine
-- `detect_warp_type()` — heuristic for FSL FNIRT absolute vs relative
+### Transform IO and Tool Helpers
+- `read_transform()` / `write_transform()`
+- `read_linear_transform()` / `write_linear_transform()`
+- `read_linear_transform_array()` / `write_linear_transform_array()`
+- `read_x5()` / `write_x5()`
+- `fsl_flirt_to_internal_affine()` — FSL FLIRT .mat → internal affine
+- `detect_fnirt_def_type()` — heuristic for FSL FNIRT absolute vs relative
 
 ### Classes (2)
 - `Morphism` (and subclasses) — the core transform abstraction
@@ -602,6 +596,5 @@ ras_coords <- tkras_to_ras(surface_coords, c_ras = c(0, 0, 0))
 - `tkras_to_scanner_ras` → `tkras_to_ras`
 - `scanner_ras_to_tkras` → `ras_to_tkras`
 
-**Total: 35 exports + 6 aliases = 41 public symbols**
-
-Still minimal. Every function earns its place. Handles every major neuroimaging tool's coordinate mess. Beautiful.
+The public API is substantially larger than the original 41-symbol kernel and
+should be treated as a broader transform-and-resampling package surface.

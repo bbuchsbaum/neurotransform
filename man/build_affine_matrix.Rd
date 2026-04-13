@@ -21,7 +21,9 @@ build_affine_matrix(
 
 \item{angles}{length-3 rotation angles (radians) about x, y, z (applied in Z-Y-X order)}
 
-\item{anchor}{Either "none"/"origin"/"centre"/"center" or a numeric length-3 point}
+\item{anchor}{Either \code{"none"}/\code{"origin"} or a numeric length-3 point.
+The \code{"centre"}/\code{"center"} keywords are not supported because this helper
+has no reference extent; pass the explicit anchor point instead.}
 }
 \value{
 4x4 numeric matrix

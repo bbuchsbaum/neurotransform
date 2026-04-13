@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <limits>
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -50,7 +51,8 @@ inline bool sample_disp(const Rcpp::NumericVector& field, const Rcpp::IntegerVec
     int xi = std::min(std::max(x0+ix,0), nx-1);
     int yi = std::min(std::max(y0+iy,0), ny-1);
     int zi = std::min(std::max(z0+iz,0), nz-1);
-    int base = ((zi*ny + yi)*nx + xi)*3;
+    const R_xlen_t base =
+      ((static_cast<R_xlen_t>(zi) * ny + yi) * nx + xi) * 3;
     acc[0] += w * field[base];
     acc[1] += w * field[base + 1];
     acc[2] += w * field[base + 2];
@@ -84,7 +86,8 @@ inline bool sample_disp_cubic(const Rcpp::NumericVector& field, const Rcpp::Inte
         int xi = std::min(std::max(x0 + ix, 0), nx - 1);
         int yi = std::min(std::max(y0 + iy, 0), ny - 1);
         int zi = std::min(std::max(z0 + iz, 0), nz - 1);
-        int base = ((zi*ny + yi)*nx + xi)*3;
+        const R_xlen_t base =
+          ((static_cast<R_xlen_t>(zi) * ny + yi) * nx + xi) * 3;
         x_vals[ix][0] = field[base];
         x_vals[ix][1] = field[base + 1];
         x_vals[ix][2] = field[base + 2];
@@ -138,7 +141,8 @@ inline bool sample_bspline_coeff_disp(const Rcpp::NumericVector& coeff,
         if (kx < 0 || kx >= nx) continue;
 
         double w = wx * wy * wz;
-        int base = ((kz * ny + ky) * nx + kx) * 3;
+        const R_xlen_t base =
+          ((static_cast<R_xlen_t>(kz) * ny + ky) * nx + kx) * 3;
         acc0 += w * coeff[base];
         acc1 += w * coeff[base + 1];
         acc2 += w * coeff[base + 2];
@@ -147,9 +151,13 @@ inline bool sample_bspline_coeff_disp(const Rcpp::NumericVector& coeff,
     }
   }
 
-  out[0] = acc0;
-  out[1] = acc1;
-  out[2] = acc2;
+  if (wsum > 0.0) {
+    out[0] = acc0 / wsum;
+    out[1] = acc1 / wsum;
+    out[2] = acc2 / wsum;
+  } else {
+    out[0] = out[1] = out[2] = 0.0;
+  }
   return wsum > 0.0;
 }
 
@@ -291,7 +299,9 @@ Rcpp::List cpp_compose_warp_fields(const Rcpp::NumericVector& fieldA,
                                    const Rcpp::NumericMatrix& vox_to_worldB) {
   // Compose B then A: resulting warp maps target coords to source coords
   int nx = dimB[0], ny = dimB[1], nz = dimB[2];
-  Rcpp::NumericVector out(nx * ny * nz * 3);
+  const R_xlen_t out_len =
+    static_cast<R_xlen_t>(nx) * ny * nz * 3;
+  Rcpp::NumericVector out(out_len);
 
   // Parallel over voxels if OpenMP available
 #ifdef _OPENMP
@@ -335,12 +345,9 @@ Rcpp::List cpp_compose_warp_fields(const Rcpp::NumericVector& fieldA,
         if (!sample_disp(fieldA, dimA, voxA[0], voxA[1], voxA[2], dispA)) {
           continue;
         }
-        // final world after A
-        double worldAfter[3] = {0,0,0};
-        // convert voxA + dispA to world using inverse of world_to_voxA (i.e., vox_to_worldA)
-        // vox_to_worldA = solve(world_to_voxA)
-        // For simplicity, caller should pass vox_to_worldA; skip here to avoid extra inverse; instead return composite displacement in world of B
-        int idx = ((z * ny + y) * nx + x) * 3;
+        // For same-frame composition, the displacements can be added directly.
+        const R_xlen_t idx =
+          ((static_cast<R_xlen_t>(z) * ny + y) * nx + x) * 3;
         out[idx]     = dispB[0] + dispA[0];
         out[idx + 1] = dispB[1] + dispA[1];
         out[idx + 2] = dispB[2] + dispA[2];
@@ -367,7 +374,9 @@ Rcpp::NumericVector cpp_absolute_to_displacement(const Rcpp::NumericVector& fiel
                                                  const Rcpp::IntegerVector& dim,
                                                  const Rcpp::NumericMatrix& vox_to_world) {
   int nx = dim[0], ny = dim[1], nz = dim[2];
-  if (field_abs.size() != nx * ny * nz * 3) Rcpp::stop("absolute field has wrong length");
+  const R_xlen_t expected_len =
+    static_cast<R_xlen_t>(nx) * ny * nz * 3;
+  if (field_abs.size() != expected_len) Rcpp::stop("absolute field has wrong length");
   Rcpp::NumericVector out(field_abs.size());
 
 #ifdef _OPENMP
@@ -376,7 +385,8 @@ Rcpp::NumericVector cpp_absolute_to_displacement(const Rcpp::NumericVector& fiel
   for (int z = 0; z < nz; ++z) {
     for (int y = 0; y < ny; ++y) {
       for (int x = 0; x < nx; ++x) {
-        int base = ((z * ny + y) * nx + x) * 3;
+        const R_xlen_t base =
+          ((static_cast<R_xlen_t>(z) * ny + y) * nx + x) * 3;
         // voxel center in world
         double hom[4] = {double(x), double(y), double(z), 1.0};
         double world[3] = {0,0,0};

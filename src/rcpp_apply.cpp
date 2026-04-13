@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <cstddef>
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -95,6 +96,8 @@ Rcpp::NumericMatrix cpp_apply_projector(const Rcpp::S4& projMat,
 
   const double* X = data.begin();
   double* Y = out.begin();
+  const std::size_t nr = static_cast<std::size_t>(n_rows);
+  const std::size_t nc = static_cast<std::size_t>(n_cols);
 
 #ifdef _OPENMP
   if (threads > 1) {
@@ -105,11 +108,11 @@ Rcpp::NumericMatrix cpp_apply_projector(const Rcpp::S4& projMat,
         const int k0 = p[col];
         const int k1 = p[col + 1];
         if (k0 == k1) continue;
-        const double xcol = X[col + c * n_cols];
+        const double xcol = X[static_cast<std::size_t>(col) + static_cast<std::size_t>(c) * nc];
         if (xcol == 0.0) continue;
         for (int k = k0; k < k1; ++k) {
           const int row = i[k];
-          Y[row + c * n_rows] += x[k] * xcol;
+          Y[static_cast<std::size_t>(row) + static_cast<std::size_t>(c) * nr] += x[k] * xcol;
         }
       }
     }
@@ -119,11 +122,11 @@ Rcpp::NumericMatrix cpp_apply_projector(const Rcpp::S4& projMat,
         const int k0 = p[col];
         const int k1 = p[col + 1];
         if (k0 == k1) continue;
-        const double xcol = X[col + c * n_cols];
+        const double xcol = X[static_cast<std::size_t>(col) + static_cast<std::size_t>(c) * nc];
         if (xcol == 0.0) continue;
         for (int k = k0; k < k1; ++k) {
           const int row = i[k];
-          Y[row + c * n_rows] += x[k] * xcol;
+          Y[static_cast<std::size_t>(row) + static_cast<std::size_t>(c) * nr] += x[k] * xcol;
         }
       }
     }
@@ -134,11 +137,11 @@ Rcpp::NumericMatrix cpp_apply_projector(const Rcpp::S4& projMat,
       const int k0 = p[col];
       const int k1 = p[col + 1];
       if (k0 == k1) continue;
-      const double xcol = X[col + c * n_cols];
+      const double xcol = X[static_cast<std::size_t>(col) + static_cast<std::size_t>(c) * nc];
       if (xcol == 0.0) continue;
       for (int k = k0; k < k1; ++k) {
         const int row = i[k];
-        Y[row + c * n_rows] += x[k] * xcol;
+        Y[static_cast<std::size_t>(row) + static_cast<std::size_t>(c) * nr] += x[k] * xcol;
       }
     }
   }

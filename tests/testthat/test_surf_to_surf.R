@@ -58,3 +58,26 @@ test_that("SurfToSurfMorphism barycentric maps within matching topology", {
   expect_equal(mapped, matrix(colMeans(src_v), ncol = 3), tolerance = 1e-8)
 })
 
+test_that("SurfToSurfMorphism barycentric marks uncovered points as NA", {
+  src_v <- matrix(c(
+    0, 0, 0,
+    1, 0, 0,
+    0, 1, 0
+  ), ncol = 3, byrow = TRUE)
+  tgt_v <- src_v
+  faces <- matrix(c(1L, 2L, 3L), nrow = 1L)
+
+  m <- SurfToSurfMorphism(
+    source = "src",
+    target = "tgt",
+    mapping = "barycentric",
+    source_vertices = src_v,
+    target_vertices = tgt_v,
+    faces = faces
+  )
+
+  q <- matrix(c(5, 5, 5), ncol = 3)
+  mapped <- transform(m, q)
+
+  expect_true(all(is.na(mapped)))
+})

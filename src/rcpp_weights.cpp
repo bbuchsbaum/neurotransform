@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <limits>
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -17,6 +18,10 @@ Rcpp::List cpp_trilinear_weights(const Rcpp::NumericMatrix& vox_coords,
                                  const Rcpp::IntegerVector& dims) {
   int n = vox_coords.nrow();
   int nx = dims[0], ny = dims[1], nz = dims[2];
+  const R_xlen_t nvox = static_cast<R_xlen_t>(nx) * ny * nz;
+  if (nvox > std::numeric_limits<int>::max()) {
+    Rcpp::stop("volume too large for cpp_trilinear_weights index representation");
+  }
   std::vector<int> rows; rows.reserve(n*8);
   std::vector<int> cols; cols.reserve(n*8);
   std::vector<double> vals; vals.reserve(n*8);
@@ -50,7 +55,11 @@ Rcpp::List cpp_trilinear_weights(const Rcpp::NumericMatrix& vox_coords,
             int xi = std::min(std::max(x0+ix,0), nx-1);
             int yi = std::min(std::max(y0+iy,0), ny-1);
             int zi = std::min(std::max(z0+iz,0), nz-1);
-            int col = xi + yi*nx + zi*nx*ny; // 0-based linear
+            const int col = static_cast<int>(
+              static_cast<R_xlen_t>(xi) +
+              static_cast<R_xlen_t>(yi) * nx +
+              static_cast<R_xlen_t>(zi) * nx * ny
+            ); // 0-based linear
             local_rows.push_back(i+1); // 1-based for R
             local_cols.push_back(col+1);
             local_vals.push_back(w);
@@ -87,7 +96,11 @@ Rcpp::List cpp_trilinear_weights(const Rcpp::NumericMatrix& vox_coords,
           int xi = std::min(std::max(x0+ix,0), nx-1);
           int yi = std::min(std::max(y0+iy,0), ny-1);
           int zi = std::min(std::max(z0+iz,0), nz-1);
-          int col = xi + yi*nx + zi*nx*ny;
+          const int col = static_cast<int>(
+            static_cast<R_xlen_t>(xi) +
+            static_cast<R_xlen_t>(yi) * nx +
+            static_cast<R_xlen_t>(zi) * nx * ny
+          );
           rows.push_back(i+1);
           cols.push_back(col+1);
           vals.push_back(w);

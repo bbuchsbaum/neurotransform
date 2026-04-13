@@ -23,6 +23,7 @@ test_that("get_linear_factory raises typed IO condition on bad format", {
 test_that("read/write_linear_transform_array supports FSL indexed files", {
   base <- tempfile(fileext = ".mat")
   on.exit(unlink(c(base, sprintf("%s.%03d", base, 0:4))))
+  dims <- c(5L, 5L, 5L)
 
   A <- diag(4)
   A[1:3, 4] <- c(1, 2, 3)
@@ -34,7 +35,9 @@ test_that("read/write_linear_transform_array supports FSL indexed files", {
     path = base,
     format = "fsl",
     source_affine = diag(4),
-    target_affine = diag(4)
+    target_affine = diag(4),
+    source_dim = dims,
+    target_dim = dims
   )
 
   expect_true(file.exists(sprintf("%s.%03d", base, 0)))
@@ -46,7 +49,9 @@ test_that("read/write_linear_transform_array supports FSL indexed files", {
     source = "src",
     target = "tgt",
     source_affine = diag(4),
-    target_affine = diag(4)
+    target_affine = diag(4),
+    source_dim = dims,
+    target_dim = dims
   )
   expect_s3_class(arr, "LinearTransformArray")
   expect_length(arr$transforms, 2)
@@ -243,4 +248,16 @@ test_that("write_transform/read_transform round-trip x5 nonlinear warp", {
     1, 2, 3
   ), byrow = TRUE, ncol = 3)
   expect_equal(transform(loaded, coords), transform(warp, coords), tolerance = 1e-6)
+})
+
+test_that("warp_from_field preserves RNG state", {
+  grid <- grid_spec(c(2, 2, 2), diag(4))
+  field <- array(0, dim = c(2, 2, 2, 3))
+
+  set.seed(42)
+  before <- .Random.seed
+  warp_from_field("src", "tgt", field, grid = grid, representation = "displacements")
+  after <- .Random.seed
+
+  expect_identical(after, before)
 })

@@ -1,5 +1,7 @@
-#include <RcppArmadillo.h>
-// [[Rcpp::depends(RcppArmadillo)]]
+#include <Rcpp.h>
+#include <limits>
+#include <map>
+#include <vector>
 
 //' Fast triplet to dgCMatrix assembly with duplicate aggregation
 //'
@@ -19,44 +21,63 @@ Rcpp::S4 cpp_triplets_to_dgC(const Rcpp::IntegerVector& i,
                              const Rcpp::NumericVector& x,
                              int nrow, int ncol,
                              int threads = 1) {
-  const std::size_t nnz = x.size();
+  const R_xlen_t nnz = x.size();
   if (i.size() != nnz || j.size() != nnz) {
     Rcpp::stop("i, j, x must have same length");
   }
-  if (nnz == 0) {
-    Rcpp::S4 empty("dgCMatrix");
-    empty.slot("Dim") = Rcpp::IntegerVector::create(nrow, ncol);
-    empty.slot("p") = Rcpp::IntegerVector(ncol + 1, 0);
-    empty.slot("i") = Rcpp::IntegerVector(0);
-    empty.slot("x") = Rcpp::NumericVector(0);
-    empty.slot("Dimnames") = Rcpp::List::create(R_NilValue, R_NilValue);
-    return empty;
+  if (nrow < 0 || ncol < 0) {
+    Rcpp::stop("nrow and ncol must be non-negative");
   }
 
-  arma::umat locations(2, nnz);
-  arma::vec values(nnz);
+  std::vector<std::map<int, double> > cols(static_cast<std::size_t>(ncol));
 
-#ifdef _OPENMP
-  #pragma omp parallel for num_threads(threads)
-#endif
-  for (std::size_t k = 0; k < nnz; ++k) {
-    int row = i[k] - 1;
-    int col = j[k] - 1;
+  for (R_xlen_t k = 0; k < nnz; ++k) {
+    const int row = i[k] - 1;
+    const int col = j[k] - 1;
     if (row < 0 || row >= nrow || col < 0 || col >= ncol) {
-      // Rcpp::stop is not thread-safe; mark sentinel and stop later
-      locations(0, k) = std::numeric_limits<arma::uword>::max();
-      continue;
+      Rcpp::stop("triplet index out of bounds");
     }
-    locations(0, k) = static_cast<arma::uword>(row);
-    locations(1, k) = static_cast<arma::uword>(col);
-    values(k) = x[k];
+    cols[static_cast<std::size_t>(col)][row] += x[k];
   }
 
-  if (locations.has_nan() ||
-      locations.min() == std::numeric_limits<arma::uword>::max()) {
-    Rcpp::stop("triplet index out of bounds");
+  R_xlen_t nnz_out = 0;
+  for (int col = 0; col < ncol; ++col) {
+    for (std::map<int, double>::const_iterator it = cols[static_cast<std::size_t>(col)].begin();
+         it != cols[static_cast<std::size_t>(col)].end(); ++it) {
+      if (it->second != 0.0) {
+        ++nnz_out;
+      }
+    }
   }
 
-  arma::sp_mat mat(locations, values, nrow, ncol, /*sort*/ true, /*check_zeros*/ true);
-  return Rcpp::wrap(mat); // RcppArmadillo returns dgCMatrix
+  if (nnz_out > static_cast<R_xlen_t>(std::numeric_limits<int>::max())) {
+    Rcpp::stop("sparse matrix has too many non-zero entries for dgCMatrix");
+  }
+
+  Rcpp::IntegerVector p(ncol + 1);
+  Rcpp::IntegerVector i_out(static_cast<int>(nnz_out));
+  Rcpp::NumericVector x_out(static_cast<int>(nnz_out));
+
+  R_xlen_t offset = 0;
+  p[0] = 0;
+  for (int col = 0; col < ncol; ++col) {
+    for (std::map<int, double>::const_iterator it = cols[static_cast<std::size_t>(col)].begin();
+         it != cols[static_cast<std::size_t>(col)].end(); ++it) {
+      if (it->second == 0.0) {
+        continue;
+      }
+      i_out[static_cast<int>(offset)] = it->first;
+      x_out[static_cast<int>(offset)] = it->second;
+      ++offset;
+    }
+    p[col + 1] = static_cast<int>(offset);
+  }
+
+  Rcpp::S4 out("dgCMatrix");
+  out.slot("Dim") = Rcpp::IntegerVector::create(nrow, ncol);
+  out.slot("p") = p;
+  out.slot("i") = i_out;
+  out.slot("x") = x_out;
+  out.slot("Dimnames") = Rcpp::List::create(R_NilValue, R_NilValue);
+  return out;
 }

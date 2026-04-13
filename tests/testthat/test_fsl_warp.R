@@ -137,7 +137,10 @@ test_that("fsl_flirt_to_internal_affine handles non-identity transforms", {
   src_aff <- diag(c(2, 2, 2, 1))  # 2mm voxels
   ref_aff <- diag(c(1, 1, 1, 1))  # 1mm voxels
 
-  internal <- fsl_flirt_to_internal_affine(flirt, src_aff, ref_aff)
+  internal <- fsl_flirt_to_internal_affine(
+    flirt, src_aff, ref_aff,
+    source_dim = c(5L, 5L, 5L), ref_dim = c(5L, 5L, 5L)
+  )
 
   # Result should be a valid 4x4 affine
   expect_equal(dim(internal), c(4, 4))

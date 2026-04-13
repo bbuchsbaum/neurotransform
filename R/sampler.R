@@ -568,9 +568,9 @@ sample_volume_on_surface <- function(data, morphism, surface_coords = NULL,
     ))
   }
 
-  # Standard sampling
-  source_coords <- transform(morphism, surface_coords)
-  sampler@evaluate(source_coords)
+  # VolToSurf morphisms expose the sampling locations directly rather than a
+  # pullback transform. sample_volume_on_surface() is the supported entrypoint.
+  sampler@evaluate(surface_coords)
 }
 
 #' Backproject surface values into a volume (adjoint of VolToSurf sampling)

@@ -84,6 +84,15 @@ test_that("is_invertible errors on non-Morphism", {
   expect_error(is_invertible(NULL), "must be a Morphism")
 })
 
+test_that("is_invertible handles MorphismPath by checking every step", {
+  aff <- Affine3DMorphism("a", "b", diag(4))
+  warp <- Warp3DMorphism("b", "c", "fwd.nii", warp_type = "ants", inverse_path = "inv.nii")
+  path <- compose(aff, warp)
+
+  expect_true(is_invertible(path))
+  expect_false(is_invertible(compose(aff, Warp3DMorphism("b", "c", "fwd.nii", warp_type = "ants"))))
+})
+
 test_that("has_adjoint checks inverse_type correctly", {
   # VolToSurfMorphism exposes an adjoint as a backprojection operator
   v2s <- VolToSurfMorphism("a", "b", method = "trilinear")
@@ -106,6 +115,15 @@ test_that("has_adjoint checks inverse_type correctly", {
 test_that("has_adjoint errors on non-Morphism", {
   expect_error(has_adjoint("not a morphism"), "must be a Morphism")
   expect_error(has_adjoint(list(a = 1)), "must be a Morphism")
+})
+
+test_that("has_adjoint handles MorphismPath by checking every step", {
+  aff <- Affine3DMorphism("a", "b", diag(4))
+  v2s <- VolToSurfMorphism("b", "c", method = "trilinear")
+  path <- compose(aff, v2s)
+
+  expect_true(has_adjoint(path))
+  expect_false(has_adjoint(compose(aff, SurfToSurfMorphism("b", "c", method = "sphere"))))
 })
 
 test_that("morphisms store hash in @hash slot", {

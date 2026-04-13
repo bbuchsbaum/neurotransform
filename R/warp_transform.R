@@ -88,6 +88,9 @@ warp_transform_coords <- function(morphism, coords) {
 #' @return List with composed array, dim, world_to_vox
 #' @keywords internal
 compose_warps <- function(warpB, warpA) {
+  if (!identical(source_of(warpB), target_of(warpA))) {
+    stop("compose_warps requires target_of(warpA) to equal source_of(warpB)")
+  }
   cache_envB <- warpB@cache %||% new_cache_env()
   cache_envA <- warpA@cache %||% new_cache_env()
   wB <- load_warp_array(warpB, cache_env = cache_envB)

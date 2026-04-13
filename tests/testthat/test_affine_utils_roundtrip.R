@@ -42,7 +42,16 @@ test_that("convert_affine_convention is invertible for identity voxel affines", 
   C <- diag(4)
   src_aff <- diag(4)
   tgt_aff <- diag(4)
-  fsl <- convert_affine_convention(C, src_aff, tgt_aff, from = "generic", to = "fsl")
-  back <- convert_affine_convention(fsl, src_aff, tgt_aff, from = "fsl", to = "generic")
+  dims <- c(5L, 5L, 5L)
+  fsl <- convert_affine_convention(
+    C, src_aff, tgt_aff,
+    source_dim = dims, target_dim = dims,
+    from = "generic", to = "fsl"
+  )
+  back <- convert_affine_convention(
+    fsl, src_aff, tgt_aff,
+    source_dim = dims, target_dim = dims,
+    from = "fsl", to = "generic"
+  )
   expect_equal(back, C, tolerance = 1e-8)
 })

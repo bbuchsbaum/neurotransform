@@ -3,9 +3,6 @@
 \name{cpp_apply_projector}
 \alias{cpp_apply_projector}
 \title{Apply sparse projector matrix to data}
-\usage{
-cpp_apply_projector(projMat, data, threads = 1L)
-}
 \arguments{
 \item{projMat}{dgCMatrix sparse projector}
 

@@ -4,10 +4,12 @@
 \alias{fsl_world_to_fsl}
 \title{Convert world coords to FSL coords}
 \usage{
-fsl_world_to_fsl(affine)
+fsl_world_to_fsl(affine, dim = NULL)
 }
 \arguments{
 \item{affine}{4x4 voxel-to-world affine}
+
+\item{dim}{Optional image dimensions}
 }
 \value{
 4x4 world-to-FSL transform

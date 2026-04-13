@@ -83,6 +83,9 @@ is_warp_morphism <- function(object) {
 #' aff <- Affine3DMorphism("a", "b", diag(4))
 #' is_invertible(aff)  # TRUE
 is_invertible <- function(object) {
+  if (methods::is(object, "MorphismPath")) {
+    return(all(vapply(object@morphisms, is_invertible, logical(1))))
+  }
   if (!methods::is(object, "Morphism")) stop("object must be a Morphism")
   object@inverse_type %in% c("exact", "approximate")
 }
@@ -96,6 +99,9 @@ is_invertible <- function(object) {
 #' @return Logical
 #' @export
 has_adjoint <- function(object) {
+  if (methods::is(object, "MorphismPath")) {
+    return(all(vapply(object@morphisms, has_adjoint, logical(1))))
+  }
   if (!methods::is(object, "Morphism")) stop("object must be a Morphism")
   object@inverse_type %in% c("exact", "approximate", "adjoint")
 }
@@ -528,11 +534,10 @@ setMethod("transform", "Warp3DMorphism", function(morphism, coords) {
 #' @rdname transform
 #' @export
 setMethod("transform", "VolToSurfMorphism", function(morphism, coords) {
-  # Surface coords are already in world; return as-is or use precomputed midpoints
-  if (!is.null(morphism@params$mid_coords)) {
-    return(morphism@params$mid_coords)
-  }
-  coords
+  stop(
+    "VolToSurfMorphism does not support transform(coords); ",
+    "use sample_volume_on_surface(), resample(), or adjoint() instead"
+  )
 })
 
 #' @rdname transform
@@ -561,7 +566,7 @@ setMethod("transform", "SurfToSurfMorphism", function(morphism, coords) {
   }
 
   w <- cpp_barycentric_weights(coords, tgt_v, faces0)
-  out <- matrix(0, nrow = nrow(coords), ncol = 3)
+  out <- matrix(NA_real_, nrow = nrow(coords), ncol = 3)
   if (length(w$rows) == 0) return(out)
 
   for (k in 1:3) {
@@ -710,6 +715,8 @@ setMethod("invert", "Warp3DMorphism", function(object) {
     warp_path = object@inverse_path,
     inverse_path = object@warp_path,
     warp_type = object@warp_type,
+    def_type = object@params$def_type %||% "relative",
+    warp_method = object@params$warp_method %||% "linear",
     cost = object@cost,
     method_tag = object@method_tag
   )

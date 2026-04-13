@@ -109,6 +109,16 @@ test_that("compose_warps combines two warp fields", {
   expect_true("world_to_vox" %in% names(result))
 })
 
+test_that("compose_warps rejects mismatched intermediate domains", {
+  warpA <- Warp3DMorphism("a", "b", warp_path = "a.nii.gz", warp_type = "dense")
+  warpB <- Warp3DMorphism("x", "c", warp_path = "b.nii.gz", warp_type = "dense")
+
+  expect_error(
+    neurotransform:::compose_warps(warpB, warpA),
+    "target_of\\(warpA\\) to equal source_of\\(warpB\\)"
+  )
+})
+
 # ==============================================================================
 # ABSOLUTE VS RELATIVE DEFORMATION TESTS
 # ==============================================================================

@@ -19,16 +19,19 @@ fsl_spacing_from_affine <- function(affine) {
 #' Build voxel-to-FSL scaling matrix
 #'
 #' @param affine 4x4 voxel-to-world affine
-#' @param dim Optional image dimensions (required to apply FSL handedness swap)
+#' @param dim Optional image dimensions. Required when `affine` is
+#'   right-handed because FSL's handedness swap needs the x-extent.
 #' @return 4x4 scaling matrix
 #' @keywords internal
 fsl_vox_to_fsl <- function(affine, dim = NULL) {
   stopifnot(is.matrix(affine), all(dim(affine) == 4))
   sp <- fsl_spacing_from_affine(affine)
   swp <- diag(4)
-  # Preserve historical behavior unless dimensions are explicitly provided.
-  # Handedness swap in FSL needs image extent to set the x-offset correctly.
-  if (!is.null(dim) && det(affine[1:3, 1:3, drop = FALSE]) > 0) {
+  det_sign <- det(affine[1:3, 1:3, drop = FALSE])
+  if (det_sign > 0 && is.null(dim)) {
+    stop("dim must be supplied for right-handed affines to compute the FSL handedness swap")
+  }
+  if (det_sign > 0) {
     swp[1, 1] <- -1
     swp[1, 4] <- (as.integer(dim)[1] - 1) * sp[1]
   }
@@ -103,11 +106,15 @@ fsl_flirt_to_internal_affine <- function(flirt_mat, source_affine, ref_affine,
 #' @param source Source domain (with @geometry@affine) or affine matrix
 #' @param target Target domain (with @geometry@affine) or affine matrix
 #' @param mat_path Path to FLIRT .mat file
+#' @param source_dim Optional source image dimensions for right-handed FSL affines
+#' @param target_dim Optional target image dimensions for right-handed FSL affines
 #' @param cost Path cost
 #' @param method_tag Method tag
 #' @return Affine3DMorphism object
 #' @keywords internal
-fsl_load_flirt_morphism <- function(source, target, mat_path, cost = 1.0, method_tag = "anatomical") {
+fsl_load_flirt_morphism <- function(source, target, mat_path,
+                                    source_dim = NULL, target_dim = NULL,
+                                    cost = 1.0, method_tag = "anatomical") {
   if (!file.exists(mat_path)) stop("FLIRT matrix not found: ", mat_path)
   mat <- as.matrix(read.table(mat_path))
 
@@ -115,7 +122,11 @@ fsl_load_flirt_morphism <- function(source, target, mat_path, cost = 1.0, method
   src_aff <- if (is.matrix(source)) source else source@geometry@affine
   ref_aff <- if (is.matrix(target)) target else target@geometry@affine
 
-  phi <- fsl_flirt_to_internal_affine(mat, src_aff, ref_aff)
+  phi <- fsl_flirt_to_internal_affine(
+    mat, src_aff, ref_aff,
+    source_dim = source_dim,
+    ref_dim = target_dim
+  )
 
   source_id <- if (is.matrix(source)) "source" else source@domain_hash
 
@@ -156,12 +167,16 @@ detect_fnirt_def_type <- function(warp_path, sample_n = 200, threshold_mm = 5) {
 
   aff <- neuroim2::trans(img)
 
-  # Sample voxels uniformly (0-based indices)
-  set.seed(1L)
   n_samples <- min(sample_n, prod(dim4[1:3]))
-  i <- sample.int(dim4[1], n_samples, replace = TRUE) - 1L
-  j <- sample.int(dim4[2], n_samples, replace = TRUE) - 1L
-  k <- sample.int(dim4[3], n_samples, replace = TRUE) - 1L
+  sample_ids <- unique(as.integer(round(seq.int(1L, prod(dim4[1:3]), length.out = n_samples))))
+  if (length(sample_ids) < n_samples) {
+    all_ids <- seq_len(prod(dim4[1:3]))
+    sample_ids <- c(sample_ids, all_ids[!all_ids %in% sample_ids][seq_len(n_samples - length(sample_ids))])
+  }
+  vox <- arrayInd(sample_ids, .dim = dim4[1:3], useNames = FALSE)
+  i <- vox[, 1] - 1L
+  j <- vox[, 2] - 1L
+  k <- vox[, 3] - 1L
 
   vals <- matrix(NA_real_, nrow = n_samples, ncol = 3)
   coords <- matrix(NA_real_, nrow = n_samples, ncol = 3)

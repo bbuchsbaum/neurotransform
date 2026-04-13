@@ -4,10 +4,13 @@
 \alias{fsl_vox_to_fsl}
 \title{Build voxel-to-FSL scaling matrix}
 \usage{
-fsl_vox_to_fsl(affine)
+fsl_vox_to_fsl(affine, dim = NULL)
 }
 \arguments{
 \item{affine}{4x4 voxel-to-world affine}
+
+\item{dim}{Optional image dimensions. Required when \code{affine} is
+right-handed because FSL's handedness swap needs the x-extent.}
 }
 \value{
 4x4 scaling matrix

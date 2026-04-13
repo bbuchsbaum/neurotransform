@@ -8,6 +8,8 @@ fsl_load_flirt_morphism(
   source,
   target,
   mat_path,
+  source_dim = NULL,
+  target_dim = NULL,
   cost = 1,
   method_tag = "anatomical"
 )
@@ -18,6 +20,10 @@ fsl_load_flirt_morphism(
 \item{target}{Target domain (with @geometry@affine) or affine matrix}
 
 \item{mat_path}{Path to FLIRT .mat file}
+
+\item{source_dim}{Optional source image dimensions for right-handed FSL affines}
+
+\item{target_dim}{Optional target image dimensions for right-handed FSL affines}
 
 \item{cost}{Path cost}
 

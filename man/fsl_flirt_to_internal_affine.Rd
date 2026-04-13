@@ -4,7 +4,13 @@
 \alias{fsl_flirt_to_internal_affine}
 \title{Convert FLIRT matrix to internal affine}
 \usage{
-fsl_flirt_to_internal_affine(flirt_mat, source_affine, ref_affine)
+fsl_flirt_to_internal_affine(
+  flirt_mat,
+  source_affine,
+  ref_affine,
+  source_dim = NULL,
+  ref_dim = NULL
+)
 }
 \arguments{
 \item{flirt_mat}{4x4 FLIRT matrix}
@@ -12,6 +18,10 @@ fsl_flirt_to_internal_affine(flirt_mat, source_affine, ref_affine)
 \item{source_affine}{4x4 voxel-to-world for source image}
 
 \item{ref_affine}{4x4 voxel-to-world for reference image}
+
+\item{source_dim}{Optional source image dimensions (needed for handedness swap)}
+
+\item{ref_dim}{Optional reference image dimensions (needed for handedness swap)}
 }
 \value{
 4x4 internal affine (ref_world -> src_world)

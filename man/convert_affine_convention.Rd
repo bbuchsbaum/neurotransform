@@ -8,6 +8,8 @@ convert_affine_convention(
   matrix,
   source_affine,
   target_affine,
+  source_dim = NULL,
+  target_dim = NULL,
   from = c("generic", "fsl"),
   to = c("generic", "fsl")
 )
@@ -18,6 +20,10 @@ convert_affine_convention(
 \item{source_affine}{4x4 voxel-to-world for source image}
 
 \item{target_affine}{4x4 voxel-to-world for target image}
+
+\item{source_dim}{Optional source image dimensions (for FSL handedness swap)}
+
+\item{target_dim}{Optional target image dimensions (for FSL handedness swap)}
 
 \item{from}{Input convention ("generic", "fsl")}
 

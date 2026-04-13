@@ -2,27 +2,20 @@
 % Please edit documentation in R/io_helpers.R
 \name{detect_transform_type}
 \alias{detect_transform_type}
-\title{Read transform from file into a Morphism}
+\title{Detect transform type from a file path}
 \usage{
 detect_transform_type(path, source_affine = NULL, target_affine = NULL)
 }
 \arguments{
-\item{path}{Path or Morphism}
+\item{path}{Transform file path}
 
-\item{type}{Optional type hint: ants_h5, ants, fsl, fsl_coef, afni, x5, linear,
-fsl_affine, afni_affine, itk_affine, lta_affine}
+\item{source_affine}{Optional source affine used to disambiguate linear files}
 
-\item{source}{Optional source id}
-
-\item{target}{Optional target id}
-
-\item{apply_affine}{Logical; for ANTs H5 files, whether to include embedded affine}
-
-\item{...}{Passed to morphism constructors}
+\item{target_affine}{Optional target affine used to disambiguate linear files}
 }
 \value{
-A Morphism or MorphismPath object
+Character scalar naming the detected transform family
 }
 \description{
-Read transform from file into a Morphism
+Detect transform type from a file path
 }

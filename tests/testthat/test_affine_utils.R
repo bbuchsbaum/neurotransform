@@ -28,11 +28,27 @@ test_that("convert_affine_convention flips FSL vox<->canonical with identity aff
   fsl[1, 4] <- 1
   src_aff <- diag(4)
   tgt_aff <- diag(4)
+  dims <- c(5L, 5L, 5L)
 
-  canon <- convert_affine_convention(fsl, src_aff, tgt_aff, from = "fsl", to = "generic")
-  back <- convert_affine_convention(canon, src_aff, tgt_aff, from = "generic", to = "fsl")
+  canon <- convert_affine_convention(
+    fsl, src_aff, tgt_aff,
+    source_dim = dims, target_dim = dims,
+    from = "fsl", to = "generic"
+  )
+  back <- convert_affine_convention(
+    canon, src_aff, tgt_aff,
+    source_dim = dims, target_dim = dims,
+    from = "generic", to = "fsl"
+  )
 
   expect_equal(back, fsl, tolerance = 1e-8)
+})
+
+test_that("build_affine_matrix rejects implicit centre anchor", {
+  expect_error(
+    build_affine_matrix(anchor = "centre"),
+    "explicit numeric anchor point"
+  )
 })
 
 test_that("shape_zoom_affine matches expected centered affine", {

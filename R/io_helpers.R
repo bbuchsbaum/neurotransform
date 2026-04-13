@@ -49,16 +49,12 @@ grid_of <- function(x) {
   stop("Unsupported type for grid_of")
 }
 
-#' Read transform from file into a Morphism
+#' Detect transform type from a file path
 #'
-#' @param path Path or Morphism
-#' @param type Optional type hint: ants_h5, ants, fsl, fsl_coef, afni, x5, linear,
-#'   fsl_affine, afni_affine, itk_affine, lta_affine
-#' @param source Optional source id
-#' @param target Optional target id
-#' @param apply_affine Logical; for ANTs H5 files, whether to include embedded affine
-#' @param ... Passed to morphism constructors
-#' @return A Morphism or MorphismPath object
+#' @param path Transform file path
+#' @param source_affine Optional source affine used to disambiguate linear files
+#' @param target_affine Optional target affine used to disambiguate linear files
+#' @return Character scalar naming the detected transform family
 #' @export
 detect_transform_type <- function(path, source_affine = NULL, target_affine = NULL) {
   if (!is.character(path) || length(path) != 1L) stop("path must be a single file path")
@@ -140,6 +136,16 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
   "ants_h5"
 }
 
+#' Read transform from file into a Morphism
+#'
+#' @param path Path or Morphism
+#' @param type Optional type hint: ants_h5, ants, fsl, fsl_coef, afni, x5, linear,
+#'   fsl_affine, afni_affine, itk_affine, lta_affine
+#' @param source Optional source id
+#' @param target Optional target id
+#' @param apply_affine Logical; for ANTs H5 files, whether to include embedded affine
+#' @param ... Passed to morphism constructors
+#' @return A Morphism or MorphismPath object
 #' @rdname read_transform
 #' @export
 read_transform <- function(path, type = NULL, source = NULL, target = NULL, apply_affine = TRUE, ...) {
@@ -455,7 +461,7 @@ warp_from_field <- function(source, target, field, grid = NULL,
     vox_to_world = grid@affine
   )
 
-  key <- id %||% paste0("inline_", compute_hash(source, target, dims, grid@affine, runif(1)))
+  key <- id %||% paste0("inline_", compute_hash(source, target, dims, grid@affine, arr))
   def_type <- if (identical(representation, "deformations")) "absolute" else "relative"
 
   m <- Warp3DMorphism(

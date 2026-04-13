@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include <limits>
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -12,6 +13,16 @@ struct ResamplePlan {
   std::vector<int> indices;    // size nvox * nweights
   std::vector<double> weights; // size nvox * nweights
 };
+
+inline int safe_linear_index(int x, int y, int z, int nx, int ny, int nz) {
+  const R_xlen_t nvox = static_cast<R_xlen_t>(nx) * ny * nz;
+  if (nvox > std::numeric_limits<int>::max()) {
+    Rcpp::stop("volume too large for resampling plan index representation");
+  }
+  return static_cast<int>(
+    (static_cast<R_xlen_t>(z) * ny + y) * nx + x
+  );
+}
 
 inline double cubic_weight(double t) {
   double at = std::abs(t);
@@ -55,7 +66,7 @@ static bool fill_linear_point(double x, double y, double z,
         int xi_n = std::min(std::max(x0 + ix, 0), plan.nx - 1);
         int yi_n = std::min(std::max(y0 + iy, 0), plan.ny - 1);
         int zi_n = std::min(std::max(z0 + iz, 0), plan.nz - 1);
-        int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
+        int linear_idx = safe_linear_index(xi_n, yi_n, zi_n, plan.nx, plan.ny, plan.nz);
         plan.indices[idx_base + k] = linear_idx;
         plan.weights[idx_base + k] = w;
         ++k;
@@ -83,7 +94,7 @@ static void fill_nearest(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) 
       plan.weights[idx_base] = 0.0;
       continue;
     }
-    int linear_idx = (zi * plan.ny + yi) * plan.nx + xi;
+    int linear_idx = safe_linear_index(xi, yi, zi, plan.nx, plan.ny, plan.nz);
     plan.indices[idx_base] = linear_idx;
     plan.weights[idx_base] = 1.0;
   }
@@ -131,7 +142,7 @@ static void fill_cubic(const Rcpp::NumericMatrix& coords, ResamplePlan& plan) {
           int xi_n = std::min(std::max(xi + ix, 0), plan.nx - 1);
           int yi_n = std::min(std::max(yi + iy, 0), plan.ny - 1);
           int zi_n = std::min(std::max(zi + iz, 0), plan.nz - 1);
-          int linear_idx = (zi_n * plan.ny + yi_n) * plan.nx + xi_n;
+          int linear_idx = safe_linear_index(xi_n, yi_n, zi_n, plan.nx, plan.ny, plan.nz);
           plan.indices[idx_base + k] = linear_idx;
           plan.weights[idx_base + k] = w;
           ++k;
@@ -151,6 +162,11 @@ SEXP cpp_make_resample_plan(const Rcpp::IntegerVector& src_dim,
   plan->ny = src_dim[1];
   plan->nz = src_dim[2];
   plan->nvox = src_coords_vox.nrow();
+  if (static_cast<R_xlen_t>(plan->nx) * plan->ny * plan->nz >
+      std::numeric_limits<int>::max()) {
+    delete plan;
+    Rcpp::stop("volume too large for resampling plan index representation");
+  }
 
   if (method == "nearest") {
     plan->nweights = 1;

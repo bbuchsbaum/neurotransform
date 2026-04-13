@@ -73,7 +73,9 @@ shape_zoom_affine <- function(shape, zooms, x_flip = TRUE, y_flip = FALSE) {
 #' @param scales length-3 scaling
 #' @param skews length-3 shear terms (xy, xz, yz)
 #' @param angles length-3 rotation angles (radians) about x, y, z (applied in Z-Y-X order)
-#' @param anchor Either "none"/"origin"/"centre"/"center" or a numeric length-3 point
+#' @param anchor Either `"none"`/`"origin"` or a numeric length-3 point.
+#'   The `"centre"`/`"center"` keywords are not supported because this helper
+#'   has no reference extent; pass the explicit anchor point instead.
 #' @return 4x4 numeric matrix
 #' @export
 build_affine_matrix <- function(
@@ -89,7 +91,7 @@ build_affine_matrix <- function(
     if (anchor %in% c("none", "origin")) {
       anchor_vec <- c(0, 0, 0)
     } else {
-      anchor_vec <- c(0, 0, 0)
+      stop("anchor='", anchor, "' is not supported; supply an explicit numeric anchor point")
     }
   } else {
     if (length(anchor) != 3) stop("anchor must be length 3 or a known keyword")

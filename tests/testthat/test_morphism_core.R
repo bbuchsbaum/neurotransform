@@ -47,3 +47,12 @@ test_that("grid_spec and grid_coords generate correct centres", {
   expect_true(any(coords[,1] == 0))
   expect_true(any(coords[,1] == 1))
 })
+
+test_that("transform on VolToSurfMorphism errors with guidance", {
+  v2s <- VolToSurfMorphism("vol", "surf", method = "trilinear")
+
+  expect_error(
+    transform(v2s, matrix(c(1, 2, 3), ncol = 3)),
+    "sample_volume_on_surface\\(\\), resample\\(\\), or adjoint\\(\\)"
+  )
+})

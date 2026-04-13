@@ -244,6 +244,7 @@ test_that("write_linear_transform generic round trip", {
 test_that("write/read_linear_transform supports fsl format with affines", {
   tmp <- tempfile(fileext = ".mat")
   on.exit(unlink(tmp))
+  dims <- c(5L, 5L, 5L)
 
   A <- diag(4)
   A[1:3, 4] <- c(1, 2, 3)
@@ -251,10 +252,12 @@ test_that("write/read_linear_transform supports fsl format with affines", {
   tgt_aff <- diag(4)
 
   write_linear_transform(A, tmp, format = "fsl",
-                         source_affine = src_aff, target_affine = tgt_aff)
+                         source_affine = src_aff, target_affine = tgt_aff,
+                         source_dim = dims, target_dim = dims)
   morph <- read_linear_transform(tmp, format = "fsl",
                                  source = "src", target = "tgt",
-                                 source_affine = src_aff, target_affine = tgt_aff)
+                                 source_affine = src_aff, target_affine = tgt_aff,
+                                 source_dim = dims, target_dim = dims)
   expect_s4_class(morph, "Affine3DMorphism")
   expect_equal(morph@matrix, A, tolerance = 1e-8)
 })

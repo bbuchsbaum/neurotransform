@@ -8,7 +8,7 @@ Warp3DMorphism(
   source,
   target,
   warp_path,
-  warp_type = c("ants", "ants_h5", "fsl", "afni", "freesurfer"),
+  warp_type = c("ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense"),
   inverse_path = "",
   def_type = NULL,
   warp_method = c("linear", "cubic"),
@@ -23,7 +23,7 @@ Warp3DMorphism(
 
 \item{warp_path}{Path to displacement field file}
 
-\item{warp_type}{One of "ants", "ants_h5", "fsl", "afni", "freesurfer"}
+\item{warp_type}{One of "ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense"}
 
 \item{inverse_path}{Path to inverse warp (optional)}
 

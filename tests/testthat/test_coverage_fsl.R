@@ -39,19 +39,21 @@ test_that("fsl_spacing_from_affine validates input", {
 
 test_that("fsl_vox_to_fsl creates correct scaling", {
   aff <- diag(c(2, 3, 4, 1))
-  v2f <- neurotransform:::fsl_vox_to_fsl(aff)
+  v2f <- neurotransform:::fsl_vox_to_fsl(aff, dim = c(5L, 6L, 7L))
 
   expect_equal(dim(v2f), c(4, 4))
-  expect_equal(v2f[1, 1], 2)
+  expect_equal(v2f[1, 1], -2)
   expect_equal(v2f[2, 2], 3)
   expect_equal(v2f[3, 3], 4)
+  expect_equal(v2f[1, 4], 8)
   expect_equal(v2f[4, 4], 1)
 })
 
 test_that("fsl_fsl_to_vox inverts fsl_vox_to_fsl", {
   aff <- diag(c(2, 3, 4, 1))
-  v2f <- neurotransform:::fsl_vox_to_fsl(aff)
-  f2v <- neurotransform:::fsl_fsl_to_vox(aff)
+  dims <- c(5L, 6L, 7L)
+  v2f <- neurotransform:::fsl_vox_to_fsl(aff, dim = dims)
+  f2v <- neurotransform:::fsl_fsl_to_vox(aff, dim = dims)
 
   expect_equal(v2f %*% f2v, diag(4), tolerance = 1e-10)
 })
@@ -63,17 +65,19 @@ test_that("fsl_fsl_to_vox inverts fsl_vox_to_fsl", {
 test_that("fsl_world_to_fsl and fsl_fsl_to_world are inverses", {
   aff <- diag(c(2, 2, 2, 1))
   aff[1:3, 4] <- c(10, 20, 30)
+  dims <- c(5L, 6L, 7L)
 
-  w2f <- neurotransform:::fsl_world_to_fsl(aff)
-  f2w <- neurotransform:::fsl_fsl_to_world(aff)
+  w2f <- neurotransform:::fsl_world_to_fsl(aff, dim = dims)
+  f2w <- neurotransform:::fsl_fsl_to_world(aff, dim = dims)
 
   expect_equal(w2f %*% f2w, diag(4), tolerance = 1e-10)
 })
 
 test_that("fsl_world_to_fsl maps world coords to FSL coords", {
   aff <- diag(c(2, 2, 2, 1))
+  dims <- c(5L, 6L, 7L)
 
-  w2f <- neurotransform:::fsl_world_to_fsl(aff)
+  w2f <- neurotransform:::fsl_world_to_fsl(aff, dim = dims)
 
   # A point in world coords should map to FSL coords
   world_pt <- c(10, 20, 30, 1)
@@ -92,7 +96,10 @@ test_that("fsl_flirt_to_internal_affine converts identity correctly", {
   src_aff <- diag(4)
   ref_aff <- diag(4)
 
-  internal <- fsl_flirt_to_internal_affine(flirt_mat, src_aff, ref_aff)
+  internal <- fsl_flirt_to_internal_affine(
+    flirt_mat, src_aff, ref_aff,
+    source_dim = c(5L, 5L, 5L), ref_dim = c(5L, 5L, 5L)
+  )
 
   expect_equal(dim(internal), c(4, 4))
   # For identity inputs, result should be identity
@@ -104,7 +111,10 @@ test_that("fsl_flirt_to_internal_affine handles scaled images", {
   src_aff <- diag(c(2, 2, 2, 1))  # 2mm source
   ref_aff <- diag(c(1, 1, 1, 1))  # 1mm reference
 
-  internal <- fsl_flirt_to_internal_affine(flirt_mat, src_aff, ref_aff)
+  internal <- fsl_flirt_to_internal_affine(
+    flirt_mat, src_aff, ref_aff,
+    source_dim = c(5L, 5L, 5L), ref_dim = c(5L, 5L, 5L)
+  )
 
   # Should be a valid 4x4 matrix
   expect_equal(dim(internal), c(4, 4))
@@ -133,7 +143,11 @@ test_that("fsl_load_flirt_morphism loads from file", {
   mat_path <- system.file("extdata/fsl/S01_lin_6dof.mat", package = "neurotransform")
   skip_if_not(file.exists(mat_path))
 
-  morph <- neurotransform:::fsl_load_flirt_morphism(diag(4), diag(4), mat_path)
+  morph <- neurotransform:::fsl_load_flirt_morphism(
+    diag(4), diag(4), mat_path,
+    source_dim = c(5L, 5L, 5L),
+    target_dim = c(5L, 5L, 5L)
+  )
 
   expect_s4_class(morph, "Affine3DMorphism")
   expect_equal(source_of(morph), "source")
@@ -146,6 +160,8 @@ test_that("fsl_load_flirt_morphism handles custom method_tag", {
 
   morph <- neurotransform:::fsl_load_flirt_morphism(
     diag(4), diag(4), mat_path,
+    source_dim = c(5L, 5L, 5L),
+    target_dim = c(5L, 5L, 5L),
     cost = 2.5,
     method_tag = "custom_method"
   )

@@ -10,11 +10,14 @@ test_that("triplet assembly builds sparse matrix and rejects out-of-bounds", {
   )
   expect_s4_class(mat, "dgCMatrix")
   expect_equal(as.matrix(mat), matrix(c(1, 0, 0, 3), nrow = 2, byrow = TRUE))
-  oob <- neurotransform:::cpp_triplets_to_dgC(i = 3L, j = 1L, x = 1, nrow = 2L, ncol = 2L)
-  expect_true(all(as.matrix(oob) == 0))
-  expect_error(neurotransform:::cpp_triplets_to_dgC(
+  expect_error(
+    neurotransform:::cpp_triplets_to_dgC(i = 3L, j = 1L, x = 1, nrow = 2L, ncol = 2L),
+    "out of bounds"
+  )
+  dup <- neurotransform:::cpp_triplets_to_dgC(
     i = c(1L, 1L), j = c(1L, 1L), x = c(1, 2), nrow = 2L, ncol = 2L
-  ))
+  )
+  expect_equal(as.matrix(dup), matrix(c(3, 0, 0, 0), nrow = 2, byrow = TRUE))
 })
 
 test_that("resample applies jacobian modulation factors", {

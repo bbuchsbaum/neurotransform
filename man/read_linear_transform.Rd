@@ -6,18 +6,21 @@
 \usage{
 read_linear_transform(
   path,
-  format = c("generic", "fsl", "afni"),
+  format = c("generic", "fsl", "afni", "itk", "lta", "x5"),
   source = "source",
   target = "target",
   source_affine = NULL,
   target_affine = NULL,
+  source_dim = NULL,
+  target_dim = NULL,
+  oblique_correction = TRUE,
   invert = FALSE
 )
 }
 \arguments{
 \item{path}{Path to transform file}
 
-\item{format}{One of "generic", "fsl", or "afni"}
+\item{format}{One of "generic", "fsl", "afni", or "itk"}
 
 \item{source}{Source domain id}
 
@@ -26,6 +29,12 @@ read_linear_transform(
 \item{source_affine}{Source voxel-to-world affine (required for fsl)}
 
 \item{target_affine}{Target voxel-to-world affine (required for fsl)}
+
+\item{source_dim}{Optional source image dimensions for FSL handedness-aware conversion}
+
+\item{target_dim}{Optional target image dimensions for FSL handedness-aware conversion}
+
+\item{oblique_correction}{Logical; for AFNI format, apply cardinal/deoblique correction}
 
 \item{invert}{Logical; if TRUE, invert the read matrix before wrapping}
 }

@@ -10,6 +10,8 @@
 #' @param threads Number of OpenMP threads
 #' @return Projected data matrix
 #' @keywords internal
+NULL
+
 cpp_apply_projector <- function(projMat, data, threads = 1L) {
     .Call(`_neurotransform_cpp_apply_projector`, projMat, data, threads)
 }

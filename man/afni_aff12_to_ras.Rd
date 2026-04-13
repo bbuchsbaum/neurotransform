@@ -4,17 +4,29 @@
 \alias{afni_aff12_to_ras}
 \title{Convert RAI affine to RAS}
 \usage{
-afni_aff12_to_ras(mat_rai)
+afni_aff12_to_ras(
+  mat_rai,
+  source_affine = NULL,
+  target_affine = NULL,
+  oblique_correction = TRUE
+)
 }
 \arguments{
 \item{mat_rai}{4x4 affine in RAI coordinates}
+
+\item{source_affine}{Optional 4x4 source (moving) voxel-to-world affine}
+
+\item{target_affine}{Optional 4x4 target (reference) voxel-to-world affine}
+
+\item{oblique_correction}{Logical; apply AFNI cardinal rotation correction}
 }
 \value{
 4x4 affine in RAS coordinates
 }
 \description{
 Converts an AFNI RAI affine matrix to our internal RAS convention
-by flipping the Z axis.
+by flipping the Z axis. Optionally applies AFNI-style deobliquing
+compensation when source/target image affines are provided.
 }
 \examples{
 mat_rai <- diag(4)
