@@ -51,6 +51,7 @@ Collate:
     'morphism.R'
     'jacobian.R'
     'sampler.R'
+    'overlap_metrics.R'
     'warp_transform.R'
     'warp_chain.R'
     'transform_path.R'
