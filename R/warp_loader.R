@@ -159,8 +159,8 @@ load_warp_ants_h5 <- function(path) {
   if (is.null(disp_key)) stop("No DisplacementFieldTransform in H5: ", path)
 
   grp <- tg[[disp_key]]
-  fixed <- grp[["TransformFixedParameters"]]$read()
-  params <- grp[["TransformParameters"]]$read()
+  fixed <- .ants_h5_read_dataset(grp, "TransformFixedParameters")
+  params <- .ants_h5_read_dataset(grp, "TransformParameters")
 
   size <- as.integer(fixed[1:3])
   origin <- fixed[4:6]
@@ -195,8 +195,8 @@ load_warp_ants_h5 <- function(path) {
   }
   if (!is.null(aff_key)) {
     grp_aff <- tg[[aff_key]]
-    p_aff <- grp_aff[["TransformParameters"]]$read()
-    fixed_aff <- grp_aff[["TransformFixedParameters"]]$read()
+    p_aff <- .ants_h5_read_dataset(grp_aff, "TransformParameters")
+    fixed_aff <- .ants_h5_read_dataset(grp_aff, "TransformFixedParameters")
     if (length(p_aff) >= 12) {
       A <- matrix(p_aff[1:9], nrow = 3, byrow = TRUE)
       tvec <- p_aff[10:12]

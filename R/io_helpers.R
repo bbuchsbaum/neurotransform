@@ -758,6 +758,37 @@ ants_h5_morphism <- function(path, source = "source", target = "target", apply_a
   .read_itk_affine_mat_v4(path)
 }
 
+.ants_h5_dataset_aliases <- function(name) {
+  switch(
+    name,
+    TransformParameters = c("TransformParameters", "TranformParameters"),
+    TransformFixedParameters = c("TransformFixedParameters", "TranformFixedParameters"),
+    name
+  )
+}
+
+.ants_h5_dataset_name <- function(group, name) {
+  candidates <- .ants_h5_dataset_aliases(name)
+  matches <- candidates[candidates %in% names(group)]
+  if (length(matches)) matches[[1L]] else NA_character_
+}
+
+.ants_h5_read_dataset <- function(group, name, context = "ANTs H5 transform group") {
+  dataset_name <- .ants_h5_dataset_name(group, name)
+  if (is.na(dataset_name)) {
+    stop(
+      sprintf(
+        "%s missing %s dataset (accepted names: %s).",
+        context,
+        name,
+        paste(.ants_h5_dataset_aliases(name), collapse = ", ")
+      ),
+      call. = FALSE
+    )
+  }
+  group[[dataset_name]]$read()
+}
+
 # Read all affine transforms from an ITK Composite H5 file.
 .read_itk_affine_h5 <- function(path) {
   if (!requireNamespace("hdf5r", quietly = TRUE)) {
@@ -779,10 +810,12 @@ ants_h5_morphism <- function(path, source = "source", target = "target", apply_a
     tt <- g[["TransformType"]]$read()
     tt <- if (length(tt)) as.character(tt[[1]]) else ""
     if (!grepl("AffineTransform", tt)) next
-    if (!all(c("TransformParameters", "TransformFixedParameters") %in% names(g))) next
+    param_name <- .ants_h5_dataset_name(g, "TransformParameters")
+    fixed_name <- .ants_h5_dataset_name(g, "TransformFixedParameters")
+    if (is.na(param_name) || is.na(fixed_name)) next
 
-    p <- as.numeric(g[["TransformParameters"]]$read())
-    fixed <- as.numeric(g[["TransformFixedParameters"]]$read())
+    p <- as.numeric(g[[param_name]]$read())
+    fixed <- as.numeric(g[[fixed_name]]$read())
     if (length(p) < 12L) next
     if (length(fixed) < 3L) fixed <- c(fixed, rep(0, 3L - length(fixed)))
     mats[[length(mats) + 1L]] <- .itk_params_to_affine(p, fixed)
