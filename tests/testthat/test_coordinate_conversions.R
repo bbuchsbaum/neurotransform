@@ -422,61 +422,48 @@ test_that("coordinate systems handle multiple points correctly", {
 # =============================================================================
 # RAI <-> RAS CONVERSION TESTS (AFNI)
 # =============================================================================
-# RAI (AFNI): +X=Right, +Y=Anterior, +Z=Inferior
-# RAS (NIfTI): +X=Right, +Y=Anterior, +Z=Superior
-# X and Y are identical; only Z differs.
+# AFNI axis letters name the NEGATIVE end of each axis, so "RAI" order is
+# numerically LPS. AFNI's own documentation (3dmaskdump -dbox) states:
+#   RAI/DICOM order: +x = Left, +y = Posterior, +z = Superior
+#   LPI/SPM  order: +x = Right, +y = Anterior, +z = Superior, i.e. "the signs of
+#                   the x and y coordinates are reversed relative to RAI/DICOM"
+# RAS (NIfTI) is LPI/SPM order, so RAI <-> RAS negates X and Y, never Z.
 
-test_that("RAI to RAS conversion only flips Z", {
-  # In RAI, +Z points Inferior. In RAS, +Z points Superior.
-  # So RAI Z = -RAS Z
-  rai <- c(10, 20, 30)  # Point in RAI
-
-  # Convert to RAS: only Z should be negated
-  ras <- rai
-  ras[3] <- -rai[3]
-
-  expect_equal(ras, c(10, 20, -30))
+test_that("AFNI RAI is numerically LPS, so RAI <-> RAS flips X and Y", {
+  rai <- c(10, 20, 30)
+  expect_equal(lps_to_ras(rai), c(-10, -20, 30))
+  expect_equal(ras_to_lps(lps_to_ras(rai)), rai)
 })
 
-test_that("RAS to RAI conversion only flips Z", {
-  ras <- c(10, 20, 30)  # Point in RAS
-
-  # Convert to RAI: only Z should be negated
-  rai <- ras
-  rai[3] <- -ras[3]
-
-  expect_equal(rai, c(10, 20, -30))
+test_that("AFNI RAI affines convert by conjugation with diag(-1, -1, 1, 1)", {
+  mat_rai <- rbind(
+    c(1, 0, 0, 7),
+    c(0, 0, -1, -3),
+    c(0, 1, 0, 5),
+    c(0, 0, 0, 1)
+  )
+  flip <- diag(c(-1, -1, 1, 1))
+  expect_equal(
+    afni_aff12_to_ras(mat_rai, oblique_correction = FALSE),
+    flip %*% mat_rai %*% flip
+  )
+  # The translation is flipped in X and Y and left alone in Z.
+  expect_equal(
+    afni_aff12_to_ras(mat_rai, oblique_correction = FALSE)[1:3, 4],
+    c(-7, 3, 5)
+  )
 })
 
-test_that("RAI round-trip preserves coordinates", {
-  original <- c(10, 20, 30)
-
-  # RAS -> RAI -> RAS (flip Z twice)
-  rai <- original
-  rai[3] <- -original[3]
-  back <- rai
-  back[3] <- -rai[3]
-
-  expect_equal(back, original)
-})
-
-test_that("AFNI coordinate system differs from LPS/DICOM", {
-  # This test documents that RAI != LPS (DICOM)
-  # RAI: +X=Right, +Y=Anterior, +Z=Inferior
-  # LPS: +X=Left, +Y=Posterior, +Z=Superior
-
-  ras <- c(10, 20, 30)
-
-  # RAI conversion: negate Z only
-  rai <- c(ras[1], ras[2], -ras[3])
-
- # LPS conversion: negate X and Y
-  lps <- c(-ras[1], -ras[2], ras[3])
-
-  # They should NOT be equal
-  expect_false(all(rai == lps))
-
-  # Verify the expected values
-  expect_equal(rai, c(10, 20, -30))
-  expect_equal(lps, c(-10, -20, 30))
+test_that("AFNI RAI affine conversion round-trips", {
+  mat_rai <- rbind(
+    c(0.9848, -0.1736, 0, 12),
+    c(0.1736, 0.9848, 0, -4),
+    c(0, 0, 1, 6),
+    c(0, 0, 0, 1)
+  )
+  back <- afni_ras_to_aff12(
+    afni_aff12_to_ras(mat_rai, oblique_correction = FALSE),
+    oblique_correction = FALSE
+  )
+  expect_equal(back, mat_rai, tolerance = 1e-12)
 })

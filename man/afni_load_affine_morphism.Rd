@@ -8,7 +8,7 @@ afni_load_affine_morphism(
   source,
   target,
   aff12_path,
-  direction = c("source_to_target", "target_to_source"),
+  direction = c("target_to_source", "source_to_target"),
   cost = 1,
   method_tag = "anatomical"
 )
@@ -20,7 +20,8 @@ afni_load_affine_morphism(
 
 \item{aff12_path}{Path to .aff12.1D file}
 
-\item{direction}{Whether matrix maps source_to_target or target_to_source}
+\item{direction}{Direction encoded by the input matrix. AFNI
+\verb{-1Dmatrix_save} output is \code{"target_to_source"}.}
 
 \item{cost}{Path cost}
 

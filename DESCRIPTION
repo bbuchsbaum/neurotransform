@@ -57,6 +57,7 @@ Collate:
     'transform_path.R'
     'afni_warp.R'
     'fsl_ingest.R'
+    'afni_io.R'
     'affine_utils.R'
     'deformation_field.R'
     'resampling_plan.R'

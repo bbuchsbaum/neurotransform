@@ -2,7 +2,7 @@
 % Please edit documentation in R/afni_warp.R
 \name{afni_aff12_to_ras}
 \alias{afni_aff12_to_ras}
-\title{Convert RAI affine to RAS}
+\title{Convert AFNI RAI/DICOM affine to RAS}
 \usage{
 afni_aff12_to_ras(
   mat_rai,
@@ -24,9 +24,11 @@ afni_aff12_to_ras(
 4x4 affine in RAS coordinates
 }
 \description{
-Converts an AFNI RAI affine matrix to our internal RAS convention
-by flipping the Z axis. Optionally applies AFNI-style deobliquing
-compensation when source/target image affines are provided.
+Converts an AFNI RAI/DICOM affine matrix to our internal RAS convention by
+flipping the X and Y axes. Optionally applies AFNI-style deobliquing
+compensation when source/target image affines are provided. Standard
+\verb{3dAllineate -1Dmatrix_save} matrices map base/target coordinates to
+source/input coordinates, which is already the package's pullback direction.
 }
 \examples{
 mat_rai <- diag(4)

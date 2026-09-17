@@ -268,8 +268,8 @@ read_linear_transform <- function(path,
   mat <- switch(
     format,
     generic = read_affine_matrix_txt(path)$matrix,
-    afni = afni_aff12_to_ras(
-      afni_read_aff12(path),
+    afni = .afni_read_linear_matrix(
+      path,
       source_affine = source_affine,
       target_affine = target_affine,
       oblique_correction = oblique_correction
@@ -400,8 +400,7 @@ write_linear_transform <- function(x,
     target_affine = target_affine,
     oblique_correction = oblique_correction
   )
-  utils::write.table(format(mat_rai[1:3, , drop = FALSE], digits = 10), file = path,
-                     row.names = FALSE, col.names = FALSE, quote = FALSE)
+  afni_write_aff12(mat_rai, path)
   invisible(path)
 }
 

@@ -128,6 +128,20 @@ read_linear_transform_array <- function(path,
     return(structure(list(format = format, transforms = tx, paths = path), class = "LinearTransformArray"))
   }
 
+  if (identical(format, "afni")) {
+    # AFNI packs a whole per-volume series into one file, one row per sub-brick.
+    mats_rai <- afni_read_aff12_array(path)
+    tx <- lapply(seq_along(mats_rai), function(i) {
+      .afni_require_nonsingular(mats_rai[[i]], i, path)
+      mat <- do.call(afni_aff12_to_ras, c(list(mats_rai[[i]]), .afni_conversion_args(extra)))
+      Affine3DMorphism(source = source, target = target, matrix = mat)
+    })
+    return(structure(
+      list(format = format, transforms = tx, paths = path),
+      class = "LinearTransformArray"
+    ))
+  }
+
   paths <- character(0)
   if (file.exists(path)) {
     paths <- c(paths, path)
@@ -220,6 +234,14 @@ write_linear_transform_array <- function(x,
     write_x5(path, nodes)
     return(invisible(path))
   }
+  if (identical(format, "afni")) {
+    # One row of twelve numbers per matrix, in file order.
+    conv <- .afni_conversion_args(list(...))
+    mats_rai <- lapply(mats, function(mat) do.call(afni_ras_to_aff12, c(list(mat), conv)))
+    afni_write_aff12(mats_rai, path)
+    return(invisible(path))
+  }
+
 
   if (!identical(format, "fsl")) {
     .stop_transform_io("Multi-transform array writing is currently supported only for format='fsl'.")

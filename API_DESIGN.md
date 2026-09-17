@@ -362,7 +362,7 @@ This is where the real complexity lives. Each neuroimaging tool has its own coor
 |------|------------------|-----------|---------------|--------|
 | **ANTs** | LPS | Relative displacement | ITK .txt or .mat | Displacement in LPS coords |
 | **FSL** | Scaled voxels | Relative OR Absolute | FLIRT .mat (4×4) | Needs source/ref geometry to interpret |
-| **AFNI** | RAI | Relative displacement | .aff12.1D (3×4) | Z-axis flipped vs RAS |
+| **AFNI** | RAI/DICOM (numerically LPS) | Relative displacement | .aff12.1D (12 numbers per row) | Axis letters name the negative end; X and Y flipped vs RAS. Matrices are base-to-source |
 | **FreeSurfer** | tkRAS | N/A (surface) | N/A | Offset by c_ras from scanner RAS |
 
 ### Our Solution: Convention-Aware Warp Application
@@ -407,10 +407,12 @@ Then: standard displacement sampling
 ```
 Plus: `detect_fnirt_def_type()` heuristic for FNIRT fields that don't declare their type.
 
-#### AFNI (RAI)
+#### AFNI (RAI/DICOM)
 ```
-Input coords (RAS) → flip Z to RAI → sample displacement → add to coords → flip Z back to RAS
+Input coords (RAS) → flip X and Y to RAI → sample displacement → add to coords → flip X and Y back to RAS
 ```
+AFNI "RAI" labels the negative end of each axis, so numerically +x=Left,
++y=Posterior, +z=Superior — the same as LPS/DICOM, not a Z flip.
 
 ### Coordinate Conversion Utilities
 
@@ -571,7 +573,7 @@ ras_coords <- tkras_to_ras(surface_coords, c_ras = c(0, 0, 0))
 
 ### Coordinate Conventions (11)
 - `ras_to_lps()` / `lps_to_ras()` — ANTs/ITK
-- `ras_to_rai()` / `rai_to_ras()` — AFNI
+- `afni_aff12_to_ras()` — AFNI RAI/DICOM affines (RAI is numerically LPS)
 - `tkras_to_ras()` / `ras_to_tkras()` — FreeSurfer
 - `fsl_to_world()` / `world_to_fsl()` — FSL scaled coords
 - `apply_affine()` / `invert_affine()` / `compose_affines()` — generic affine math

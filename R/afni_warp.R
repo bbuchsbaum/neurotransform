@@ -7,13 +7,12 @@
 #'
 #' @section Coordinate Systems:
 #' \itemize{
-#'   \item LPS (DICOM, used in AFNI warp displacements): +X=Left, +Y=Posterior, +Z=Superior
-#'   \item RAI (AFNI affines): +X=Right, +Y=Anterior, +Z=Inferior
+#'   \item RAI/DICOM (used by AFNI affines and warp displacements):
+#'         +X=Left, +Y=Posterior, +Z=Superior (numerically LPS)
 #'   \item RAS (NIfTI/neuroim2): +X=Right, +Y=Anterior, +Z=Superior
 #' }
 #'
 #' LPS to RAS: negate X and Y (Z is the same).
-#' RAI to RAS: negate Z only (X and Y are the same).
 NULL
 
 #' Apply AFNI warp displacement to coordinates
@@ -44,32 +43,15 @@ afni_warp_transform_coords <- function(morphism, coords) {
   cpp_apply_warp_field(coords, warp$array, warp$dim, warp$world_to_vox)
 }
 
-#' Read AFNI .aff12.1D affine matrix
-#'
-#' Reads a 3x4 affine matrix in RAI coordinates and returns a 4x4 matrix.
-#'
-#' @param path Path to .aff12.1D file
-#' @return 4x4 affine matrix (in RAI)
-#' @export
-#' @examples
-#' \dontrun{
-#' mat_rai <- afni_read_aff12("transform.aff12.1D")
-#' }
-afni_read_aff12 <- function(path) {
-  if (!file.exists(path)) stop("AFNI aff12 file not found: ", path)
-  lines <- readLines(path, warn = FALSE)
-  lines <- lines[!grepl("^\\s*#", lines)]
-  vals <- scan(text = lines, quiet = TRUE)
-  if (length(vals) != 12) stop("AFNI aff12 file must contain 12 numbers")
-  mat <- matrix(vals, nrow = 3, ncol = 4, byrow = TRUE)
-  rbind(mat, c(0, 0, 0, 1))
-}
+# Matrix file parsing lives in R/afni_io.R (afni_read_aff12, afni_read_aff12_array).
 
-#' Convert RAI affine to RAS
+#' Convert AFNI RAI/DICOM affine to RAS
 #'
-#' Converts an AFNI RAI affine matrix to our internal RAS convention
-#' by flipping the Z axis. Optionally applies AFNI-style deobliquing
-#' compensation when source/target image affines are provided.
+#' Converts an AFNI RAI/DICOM affine matrix to our internal RAS convention by
+#' flipping the X and Y axes. Optionally applies AFNI-style deobliquing
+#' compensation when source/target image affines are provided. Standard
+#' `3dAllineate -1Dmatrix_save` matrices map base/target coordinates to
+#' source/input coordinates, which is already the package's pullback direction.
 #'
 #' @param mat_rai 4x4 affine in RAI coordinates
 #' @param source_affine Optional 4x4 source (moving) voxel-to-world affine
@@ -85,7 +67,7 @@ afni_aff12_to_ras <- function(mat_rai,
                               target_affine = NULL,
                               oblique_correction = TRUE) {
   stopifnot(is.matrix(mat_rai), all(dim(mat_rai) == 4))
-  flip <- diag(c(1, 1, -1, 1))
+  flip <- diag(c(-1, -1, 1, 1))
   mat_ras <- flip %*% mat_rai %*% flip
 
   if (isTRUE(oblique_correction)) {
@@ -118,7 +100,7 @@ afni_ras_to_aff12 <- function(mat_ras,
     }
   }
 
-  flip <- diag(c(1, 1, -1, 1))
+  flip <- diag(c(-1, -1, 1, 1))
   flip %*% out %*% flip
 }
 
@@ -171,17 +153,18 @@ afni_cardinal_rotation <- function(oblique, real_to_card = TRUE) {
 #' @param source Source domain hash
 #' @param target Target domain hash
 #' @param aff12_path Path to .aff12.1D file
-#' @param direction Whether matrix maps source_to_target or target_to_source
+#' @param direction Direction encoded by the input matrix. AFNI
+#'   `-1Dmatrix_save` output is `"target_to_source"`.
 #' @param cost Path cost
 #' @param method_tag Method tag
 #' @return Affine3DMorphism object
 #' @keywords internal
 afni_load_affine_morphism <- function(source, target, aff12_path,
-                                      direction = c("source_to_target", "target_to_source"),
+                                      direction = c("target_to_source", "source_to_target"),
                                       cost = 1.0, method_tag = "anatomical") {
   direction <- match.arg(direction)
   m_rai <- afni_read_aff12(aff12_path)
-  if (direction == "target_to_source") {
+  if (direction == "source_to_target") {
     m_rai <- invert_affine(m_rai)
   }
   m_ras <- afni_aff12_to_ras(m_rai)

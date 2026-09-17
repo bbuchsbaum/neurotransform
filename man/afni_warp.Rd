@@ -11,12 +11,11 @@ the LPS <-> RAS conversion for warps and RAI <-> RAS for affines.
 \section{Coordinate Systems}{
 
 \itemize{
-\item LPS (DICOM, used in AFNI warp displacements): +X=Left, +Y=Posterior, +Z=Superior
-\item RAI (AFNI affines): +X=Right, +Y=Anterior, +Z=Inferior
+\item RAI/DICOM (used by AFNI affines and warp displacements):
++X=Left, +Y=Posterior, +Z=Superior (numerically LPS)
 \item RAS (NIfTI/neuroim2): +X=Right, +Y=Anterior, +Z=Superior
 }
 
 LPS to RAS: negate X and Y (Z is the same).
-RAI to RAS: negate Z only (X and Y are the same).
 }
 

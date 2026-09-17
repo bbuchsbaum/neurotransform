@@ -1,9 +1,18 @@
-test_that("afni_aff12_to_ras flips Z axis correctly", {
-  mat_rai <- diag(4)
-  mat_rai[3, 4] <- 5
-  mat_ras <- afni_aff12_to_ras(mat_rai)
-  expect_equal(mat_ras[3, 4], -5)
-  expect_equal(mat_ras[1:2, 1:2], diag(2))
+test_that("AFNI RAI/DICOM affines are converted from numeric LPS to RAS", {
+  mat_lps <- diag(4)
+  mat_lps[1:3, 1:3] <- matrix(c(
+    1.1, 0.2, 0.0,
+    0.0, 0.9, 0.1,
+    0.0, 0.0, 1.0
+  ), nrow = 3, byrow = TRUE)
+  mat_lps[1:3, 4] <- c(4, -3, 5)
+
+  lps_to_ras <- diag(c(-1, -1, 1, 1))
+  expected <- lps_to_ras %*% mat_lps %*% lps_to_ras
+  actual <- afni_aff12_to_ras(mat_lps, oblique_correction = FALSE)
+
+  expect_equal(actual, expected, tolerance = 1e-12)
+  expect_equal(actual[1:3, 4], c(-4, 3, 5), tolerance = 1e-12)
 })
 
 test_that("afni_is_oblique distinguishes cardinal vs oblique affines", {
@@ -26,6 +35,25 @@ test_that("afni_load_affine_morphism reads and converts aff12", {
   expect_equal(source_of(m), "src")
   expect_equal(target_of(m), "tgt")
   expect_true(is.matrix(m@matrix))
+})
+
+test_that("AFNI saved matrix direction is target to source", {
+  path <- tempfile(fileext = ".aff12.1D")
+  on.exit(unlink(path))
+
+  mat_lps <- diag(4)
+  mat_lps[1:3, 4] <- c(2, -4, 6)
+  write.table(mat_lps[1:3, ], path, row.names = FALSE, col.names = FALSE)
+  flip <- diag(c(-1, -1, 1, 1))
+  expected <- flip %*% mat_lps %*% flip
+
+  standard <- afni_load_affine_morphism("src", "tgt", path)
+  reversed <- afni_load_affine_morphism(
+    "src", "tgt", path, direction = "source_to_target"
+  )
+
+  expect_equal(standard@matrix, expected, tolerance = 1e-12)
+  expect_equal(reversed@matrix, solve(expected), tolerance = 1e-12)
 })
 
 test_that("afni_warp_transform_coords applies LPS to RAS conversion", {
