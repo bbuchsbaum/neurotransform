@@ -25,9 +25,12 @@ test_that("5D fields keep the existing ANTs default and AFNI name hints", {
   skip_if_not_installed("RNifti")
   expect_equal(detect_transform_type(write_vector_header("warp.nii.gz", c(4L, 5L, 6L, 1L, 3L))), "ants")
   expect_equal(detect_transform_type(write_vector_header("anat_qwarp.nii.gz", c(4L, 5L, 6L, 1L, 3L))), "afni")
-  itk <- system.file("extdata/itk_oracle/warp.nii.gz", package = "neurotransform")
-  skip_if_not(file.exists(itk))
-  expect_equal(detect_transform_type(itk), "ants")
+  for (name in c("itk_oracle/warp.nii.gz", "ants/sample_ANTs_1Warp.nii.gz",
+                 "ants/sample_ANTs_1InverseWarp.nii.gz")) {
+    path <- system.file("extdata", name, package = "neurotransform")
+    skip_if_not(file.exists(path))
+    expect_equal(detect_transform_type(path), "ants")
+  }
 })
 
 test_that("an inferred FSL field without geometry fails when read", {

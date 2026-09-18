@@ -22,7 +22,8 @@
         4,
         2
       ],
-      "warpres_mm": "6.6,10,6"
+      "warpres_mm": "6.6,10,6",
+      "spline_order": 3
     },
     {
       "id": "srcleft_refleft_aff",
@@ -44,7 +45,8 @@
         3,
         3
       ],
-      "warpres_mm": "10.4,6.9,7.2"
+      "warpres_mm": "10.4,6.9,7.2",
+      "spline_order": 3
     },
     {
       "id": "srcleft_refright_noaff",
@@ -66,7 +68,8 @@
         5,
         3
       ],
-      "warpres_mm": "4.8,10.5,8.4"
+      "warpres_mm": "4.8,10.5,8.4",
+      "spline_order": 3
     },
     {
       "id": "srcleft_refright_aff",
@@ -88,7 +91,8 @@
         2,
         4
       ],
-      "warpres_mm": "10,5.4,10"
+      "warpres_mm": "10,5.4,10",
+      "spline_order": 3
     },
     {
       "id": "srcright_refleft_noaff",
@@ -110,7 +114,8 @@
         3,
         1
       ],
-      "warpres_mm": "7.5,7.2,2.2"
+      "warpres_mm": "7.5,7.2,2.2",
+      "spline_order": 3
     },
     {
       "id": "srcright_refleft_aff",
@@ -132,7 +137,8 @@
         2,
         3
       ],
-      "warpres_mm": "9.2,5.6,7.8"
+      "warpres_mm": "9.2,5.6,7.8",
+      "spline_order": 3
     },
     {
       "id": "srcright_refright_noaff",
@@ -154,7 +160,8 @@
         4,
         5
       ],
-      "warpres_mm": "8.1,8.8,11.5"
+      "warpres_mm": "8.1,8.8,11.5",
+      "spline_order": 3
     },
     {
       "id": "srcright_refright_aff",
@@ -176,7 +183,54 @@
         3,
         2
       ],
-      "warpres_mm": "2.1,7.8,5.4"
+      "warpres_mm": "2.1,7.8,5.4",
+      "spline_order": 3
+    },
+    {
+      "id": "srcleft_refright_aff_quad",
+      "source_hand": "left",
+      "reference_hand": "right",
+      "with_aff": true,
+      "reference_dim": [
+        12,
+        11,
+        9
+      ],
+      "source_dim": [
+        16,
+        14,
+        14
+      ],
+      "knot_spacing_vox": [
+        5,
+        2,
+        4
+      ],
+      "warpres_mm": "10,5.4,10",
+      "spline_order": 2
+    },
+    {
+      "id": "srcright_refleft_noaff_quad",
+      "source_hand": "right",
+      "reference_hand": "left",
+      "with_aff": false,
+      "reference_dim": [
+        10,
+        11,
+        11
+      ],
+      "source_dim": [
+        14,
+        14,
+        16
+      ],
+      "knot_spacing_vox": [
+        3,
+        3,
+        1
+      ],
+      "warpres_mm": "7.5,7.2,2.2",
+      "spline_order": 2
     }
   ],
   "commands": [
@@ -799,16 +853,171 @@
         ]
       ],
       "returncode": 0
+    },
+    {
+      "case": "srcleft_refright_aff_quad",
+      "image": "brainlife/fsl@sha256:fbd262c385e9de22aa58bf7b6311cbd5cd96c7b4eaff151f879191e869bf224e",
+      "commands": [
+        [
+          "fnirt",
+          "--ref=target.nii.gz",
+          "--in=source.nii.gz",
+          "--cout=coef.nii.gz",
+          "--warpres=10,5.4,10",
+          "--subsamp=1",
+          "--miter=4",
+          "--lambda=30",
+          "--infwhm=0",
+          "--reffwhm=0",
+          "--estint=1",
+          "--applyrefmask=1",
+          "--applyinmask=1",
+          "--intmod=global_linear",
+          "--splineorder=2",
+          "--aff=premat.mat"
+        ],
+        [
+          "fnirtfileutils",
+          "--in=coef.nii.gz",
+          "--ref=target.nii.gz",
+          "--out=field_noaff.nii.gz"
+        ],
+        [
+          "fnirtfileutils",
+          "--in=coef.nii.gz",
+          "--ref=target.nii.gz",
+          "--out=field_aff.nii.gz",
+          "--withaff"
+        ],
+        [
+          "applywarp",
+          "--in=source.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_source.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord0.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord0.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord1.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord1.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord2.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord2.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=support.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_support.nii.gz",
+          "--interp=trilinear"
+        ]
+      ],
+      "returncode": 0
+    },
+    {
+      "case": "srcright_refleft_noaff_quad",
+      "image": "brainlife/fsl@sha256:fbd262c385e9de22aa58bf7b6311cbd5cd96c7b4eaff151f879191e869bf224e",
+      "commands": [
+        [
+          "fnirt",
+          "--ref=target.nii.gz",
+          "--in=source.nii.gz",
+          "--cout=coef.nii.gz",
+          "--warpres=7.5,7.2,2.2",
+          "--subsamp=1",
+          "--miter=4",
+          "--lambda=30",
+          "--infwhm=0",
+          "--reffwhm=0",
+          "--estint=1",
+          "--applyrefmask=1",
+          "--applyinmask=1",
+          "--intmod=global_linear",
+          "--splineorder=2"
+        ],
+        [
+          "fnirtfileutils",
+          "--in=coef.nii.gz",
+          "--ref=target.nii.gz",
+          "--out=field_noaff.nii.gz"
+        ],
+        [
+          "fnirtfileutils",
+          "--in=coef.nii.gz",
+          "--ref=target.nii.gz",
+          "--out=field_aff.nii.gz",
+          "--withaff"
+        ],
+        [
+          "applywarp",
+          "--in=source.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_source.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord0.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord0.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord1.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord1.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=coord2.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_coord2.nii.gz",
+          "--interp=trilinear"
+        ],
+        [
+          "applywarp",
+          "--in=support.nii.gz",
+          "--ref=target.nii.gz",
+          "--warp=coef.nii.gz",
+          "--out=native_support.nii.gz",
+          "--interp=trilinear"
+        ]
+      ],
+      "returncode": 0
     }
   ],
   "semantics": {
-    "coef": "fnirt --cout, cubic spline (intent 2007); sform = --aff FLIRT matrix (identity if none)",
+    "coef": "fnirt --cout, cubic spline (intent 2007), or quadratic (intent 2009) in *_quad cases; sform = --aff FLIRT matrix (identity if none)",
     "field_noaff": "fnirtfileutils relative field, spline displacement only (target FSL mm)",
     "field_aff": "fnirtfileutils --withaff relative field: inv(A) @ target_FSL + d - target_FSL",
     "native_coordK": "applywarp --warp=coef of source RAS coordinate ramp K (trilinear)",
     "native_support": "applywarp of the two-voxel source-interior indicator; ==1 where ramps are exact"
   },
-  "generator_sha256": "1dfd00f9df873f6f4b66be3fe316f9fda36950c2922d8f571b638f029fb77a74",
+  "generator_sha256": "eede3c5cf77cc063bdf188200c06640a655574ae41a281d39b06ca3e579ce66f",
   "hashes": {
     "srcleft_refleft_aff/coef.nii.gz": "402fc7b2b790a5cd638766a2da78c5cb38ba3e2a481cf5234bb77a38891ea6d1",
     "srcleft_refleft_aff/field_aff.nii.gz": "57ad46c0d2410ba09896d8944c1e2f8942c061ec7a30eadc47809cb87a17a6cc",
@@ -842,6 +1051,17 @@
     "srcleft_refright_aff/premat.mat": "0325d5fe29dd12393836ec1bf16d2deb1772b72dcbcd9c338b259b413375d16f",
     "srcleft_refright_aff/source.nii.gz": "ab547858a0fced19ad4f973d0547f0d23c78c2d9399be015b98e6219c7301f60",
     "srcleft_refright_aff/target.nii.gz": "e6bc6b7db7243e671abe1f8ef8551915b6a38443880bbb04bf013239baacb1bf",
+    "srcleft_refright_aff_quad/coef.nii.gz": "d32b692acf0e44ec2fc39500ae6951cd115ace876ff688e45ddb2a100a91a398",
+    "srcleft_refright_aff_quad/field_aff.nii.gz": "e5c7166fcfb6a2eecee6e48625ea055112470f16a5334fa5ef1d02dcff2a640e",
+    "srcleft_refright_aff_quad/field_noaff.nii.gz": "8b28401e5e5596977f333835c2d64c3befd9c04a616e4ef6dc1e25c386dfb968",
+    "srcleft_refright_aff_quad/native_coord0.nii.gz": "238d90a2ca20d41a7f1a4998399ed28b2c868c77d4a517919889e55227f493f0",
+    "srcleft_refright_aff_quad/native_coord1.nii.gz": "a519a598c6283cf0a9ddf3cb44d2f1f1f9d43da6f225482844c33ec34e922b23",
+    "srcleft_refright_aff_quad/native_coord2.nii.gz": "31bbbc3f9f08209309de0245f2b8f382187926feefa778a7901bcfa2b5e76afa",
+    "srcleft_refright_aff_quad/native_source.nii.gz": "2097f4f7da476ec72b21e1382846dfebb5cd4b2edf23322fc99cf0261bd411df",
+    "srcleft_refright_aff_quad/native_support.nii.gz": "1bb919868930da66a5c42f952cb5fa34dc5c0457b8da79b63e14a18fee3d1b7c",
+    "srcleft_refright_aff_quad/premat.mat": "0325d5fe29dd12393836ec1bf16d2deb1772b72dcbcd9c338b259b413375d16f",
+    "srcleft_refright_aff_quad/source.nii.gz": "ab547858a0fced19ad4f973d0547f0d23c78c2d9399be015b98e6219c7301f60",
+    "srcleft_refright_aff_quad/target.nii.gz": "e6bc6b7db7243e671abe1f8ef8551915b6a38443880bbb04bf013239baacb1bf",
     "srcleft_refright_noaff/coef.nii.gz": "687c638f19cd1d58d2cbb4ef7bbfbdea062b93f2d6fdb6a067907fe47d322fbe",
     "srcleft_refright_noaff/field_aff.nii.gz": "4ebf75a4c79798027dbfa90ec66cbab74074ed2a6453e031860796bb8f0cc7d3",
     "srcleft_refright_noaff/field_noaff.nii.gz": "4ebf75a4c79798027dbfa90ec66cbab74074ed2a6453e031860796bb8f0cc7d3",
@@ -873,6 +1093,16 @@
     "srcright_refleft_noaff/native_support.nii.gz": "22d5bb7348dca553605b7e9f631ae3278da54af3d7427f1d45644b163f67ec75",
     "srcright_refleft_noaff/source.nii.gz": "55ee0f636135fcd7b0a539aaa3c658fd9ae8950802b8cd30c47daade2bf7e5b8",
     "srcright_refleft_noaff/target.nii.gz": "ea8fc543d26ee26d2d96f4aceffabf77f6f64cfda2ecfd841b368dfc72a085ac",
+    "srcright_refleft_noaff_quad/coef.nii.gz": "9202fa171ab70f7be1871e044bf26a57c294ac48c1c5244e17d76633c3e58eb4",
+    "srcright_refleft_noaff_quad/field_aff.nii.gz": "abc8c922ea603f2ff8ff811bebda52530693c398f07cc37454fd3dd573f7344f",
+    "srcright_refleft_noaff_quad/field_noaff.nii.gz": "abc8c922ea603f2ff8ff811bebda52530693c398f07cc37454fd3dd573f7344f",
+    "srcright_refleft_noaff_quad/native_coord0.nii.gz": "4aed365605d2d53296f3e85706d1781bbdf2da6a07fa07ad8854d9fd27ce8b1d",
+    "srcright_refleft_noaff_quad/native_coord1.nii.gz": "ecea2dfc1e7df195b48ec9da9846a134d57cac71b69e40e7988b06bb8cbc7727",
+    "srcright_refleft_noaff_quad/native_coord2.nii.gz": "e359124dcb580bf12ac01a436ce32aa01c5520395679fbeb32a869e03b1edec9",
+    "srcright_refleft_noaff_quad/native_source.nii.gz": "a9a6219671a8ac5f8cc04c8696c89e2383f4b8be90cd5177acc6bb9ffe86f63c",
+    "srcright_refleft_noaff_quad/native_support.nii.gz": "e3febb3b2065f25512008cc0a1d9f1d06fc5a8ff9516d272a7d038b489141b10",
+    "srcright_refleft_noaff_quad/source.nii.gz": "55ee0f636135fcd7b0a539aaa3c658fd9ae8950802b8cd30c47daade2bf7e5b8",
+    "srcright_refleft_noaff_quad/target.nii.gz": "ea8fc543d26ee26d2d96f4aceffabf77f6f64cfda2ecfd841b368dfc72a085ac",
     "srcright_refright_aff/coef.nii.gz": "c6c1d633f9afcf476cf4af10a0466881a65cc66f621cbe02da414ab09afc1e16",
     "srcright_refright_aff/field_aff.nii.gz": "fe3f7020c10064843d6d6f9ea56ec9f3b507776d744e73948172e29bfec8ae33",
     "srcright_refright_aff/field_noaff.nii.gz": "a874c64de7a5925754c98d853b035c8b81a438aba565750a37f4911404f1c812",

@@ -13,5 +13,8 @@ as_morphism_path(...)
 MorphismPath object
 }
 \description{
-Coerce list/paths to MorphismPath
+File paths are read with \code{read_transform()} and no further arguments.
+FSL warps need image geometry that a path alone does not carry, so read
+them with \code{read_transform(..., source_affine, source_dim)} and pass the
+resulting morphisms instead.
 }

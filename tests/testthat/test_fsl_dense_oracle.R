@@ -155,3 +155,26 @@ test_that("native FSL fields are detected as FSL and need source geometry", {
     }
   }
 })
+
+test_that("resample_to() lends the moving image's geometry to FSL field paths", {
+  for (id in c("right_left_relative", "left_right_absolute")) {
+    d <- fsl_dense_case(id)
+    expected <- as.numeric(as.array(d$read("native_source")))
+    by_path <- as.numeric(as.array(resample_to(d$source, d$target, d$args$path, method = "linear")))
+    expect_lt(max(abs(by_path[d$mask] - expected[d$mask])), 3e-6)
+  }
+  # Without a geometry-bearing moving image the path still needs explicit geometry.
+  plain <- array(as.numeric(as.array(d$source)), dim(d$source))
+  expect_error(resample_to(plain, d$target, d$args$path),
+               "Detected a dense FSL warp field")
+})
+
+test_that("resample_to() does not guess the reference grid of coefficient files", {
+  skip_if_not_installed("RNifti")
+  folder <- system.file("extdata", "fsl_coef_oracle", "srcleft_refright_aff",
+                        package = "neurotransform", mustWork = TRUE)
+  source <- neuroim2::read_vol(file.path(folder, "source.nii.gz"))
+  target <- neuroim2::read_vol(file.path(folder, "target.nii.gz"))
+  expect_error(resample_to(source, target, file.path(folder, "coef.nii.gz")),
+               "require source_affine and source_dim")
+})

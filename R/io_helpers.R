@@ -655,6 +655,11 @@ write_transform <- function(x, path, type = NULL, ...) {
 
 #' Coerce list/paths to MorphismPath
 #'
+#' File paths are read with \code{read_transform()} and no further arguments.
+#' FSL warps need image geometry that a path alone does not carry, so read
+#' them with \code{read_transform(..., source_affine, source_dim)} and pass the
+#' resulting morphisms instead.
+#'
 #' @param ... Morphism objects or file paths to transforms
 #' @return MorphismPath object
 #' @export
@@ -674,7 +679,11 @@ as_morphism_path <- function(...) {
 #'
 #' @param moving Source volume (neuroim2 or array)
 #' @param target Target volume or Grid
-#' @param transform Morphism, MorphismPath, or file path
+#' @param transform Morphism, MorphismPath, or file path. When a path is a
+#'   dense FSL field, the moving image (a neuroim2 volume) supplies the source
+#'   geometry the field needs. FNIRT coefficient files also need the reference
+#'   geometry, which the target grid does not reliably provide, so read them
+#'   with \code{read_transform()} first.
 #' @param method Interpolation method
 #' @param modulate Jacobian modulation
 #' @return neuroim2 volume (matching target geometry)
@@ -685,6 +694,12 @@ resample_to <- function(moving, target, transform,
   tgt_grid <- grid_of(target)
   morph <- if (is(transform, "Morphism") || is(transform, "MorphismPath")) {
     transform
+  } else if (is.character(transform) && length(transform) == 1L && file.exists(transform) &&
+             inherits(moving, c("DenseNeuroVol", "DenseNeuroVec")) &&
+             identical(detect_transform_type(transform), "fsl")) {
+    # The moving image is the source of the pullback mapping.
+    read_transform(transform, source_affine = neuroim2::trans(moving),
+                   source_dim = dim(moving)[1:3])
   } else {
     read_transform(transform)
   }

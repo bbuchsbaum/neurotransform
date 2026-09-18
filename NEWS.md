@@ -92,3 +92,11 @@
 - Custom loaders registered for `"fsl_coef"` must now return the raw
   coefficient list of `load_warp_fsl_coef()` (coefficients, knot spacing,
   spline order, reference dimensions and voxel size, and the FLIRT matrix).
+- Added native FSL 5.0.9 quadratic-spline coefficient fixtures (intent 2009,
+  two `*_quad` cases in `inst/extdata/fsl_coef_oracle`); quadratic decoding
+  reproduces `applywarp --warp=coef` to 1.2e-5 mm.
+- `resample_to()` reads a dense FSL field given as a file path with the moving
+  image's geometry (the source of the pullback mapping). FNIRT coefficient
+  files still need `read_transform()` with the reference geometry.
+- The bundled ANTs sample warps now use the ITK vector layout (5D, intent
+  1007) that real ANTs files have; their loaded values are unchanged.

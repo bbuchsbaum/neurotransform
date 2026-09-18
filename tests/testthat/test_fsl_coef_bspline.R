@@ -26,7 +26,9 @@ fsl_coef_case <- function(id) {
 fsl_coef_ids <- function() {
   grid <- expand.grid(aff = c("noaff", "aff"), ref = c("refleft", "refright"),
                       src = c("srcleft", "srcright"), stringsAsFactors = FALSE)
-  paste(grid$src, grid$ref, grid$aff, sep = "_")
+  # Two quadratic-spline (intent 2009) cases repeat cubic grids.
+  c(paste(grid$src, grid$ref, grid$aff, sep = "_"),
+    "srcleft_refright_aff_quad", "srcright_refleft_noaff_quad")
 }
 
 test_that("coefficient files reproduce applywarp --warp=coef for all handedness pairs", {
@@ -66,8 +68,14 @@ test_that("coefficient files decode to the fnirtfileutils --withaff field", {
 
 test_that("coefficient files are detected from the header", {
   skip_if_not_installed("RNifti")
+  for (id in c("srcright_refleft_aff", "srcleft_refright_aff_quad")) {
+    expect_equal(detect_transform_type(fsl_coef_case(id)$args$path), "fsl_coef")
+  }
+  intents <- vapply(fsl_coef_ids(), function(id) {
+    RNifti::niftiHeader(fsl_coef_case(id)$args$path)$intent_code
+  }, integer(1))
+  expect_equal(unname(intents), rep(c(2007L, 2009L), c(8L, 2L)))
   d <- fsl_coef_case("srcright_refleft_aff")
-  expect_equal(detect_transform_type(d$args$path), "fsl_coef")
   renamed <- file.path(tempfile("coef_"), "field.nii.gz")
   dir.create(dirname(renamed))
   file.copy(d$args$path, renamed)

@@ -11,7 +11,11 @@ resample_to(moving, target, transform, method = "linear", modulate = "none")
 
 \item{target}{Target volume or Grid}
 
-\item{transform}{Morphism, MorphismPath, or file path}
+\item{transform}{Morphism, MorphismPath, or file path. When a path is a
+dense FSL field, the moving image (a neuroim2 volume) supplies the source
+geometry the field needs. FNIRT coefficient files also need the reference
+geometry, which the target grid does not reliably provide, so read them
+with \code{read_transform()} first.}
 
 \item{method}{Interpolation method}
 

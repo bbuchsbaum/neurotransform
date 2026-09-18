@@ -94,133 +94,145 @@ KSP = [
     (1, 3, 2),
 ]
 
+def make_case(src_hand, ref_hand, with_aff, n, order):
+    cid = f"src{src_hand}_ref{ref_hand}_{'aff' if with_aff else 'noaff'}"
+    if order == 2:
+        cid += "_quad"
+    folder = work / cid
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    rs, rsp, ksp = REF_SHAPES[n], REF_SPACING[n], KSP[n]
+    ss = (rs[0] + 4, rs[1] + 3, rs[2] + 5)
+    ssp = tuple(round(v * f, 3) for v, f in zip(rsp, (1.07, 0.93, 1.05)))
+    ta = geometry(
+        rs, rsp, 0.13 + 0.02 * n, ref_hand, np.array([1.0, -1.0, 2.0]) + 0.3 * n
+    )
+    sa = geometry(
+        ss,
+        ssp,
+        -0.21 + 0.03 * n,
+        src_hand,
+        np.array([-2.0, 1.5, -1.0]) - 0.2 * n,
+    )
+    ps = world_grid(ss, sa)
+    warp = np.stack(
+        [
+            1.6 * np.sin(ps[..., 1] / 7),
+            1.3 * np.cos(ps[..., 2] / 6),
+            1.1 * np.sin(ps[..., 0] / 8),
+        ],
+        axis=-1,
+    )
+    save(folder / "source.nii.gz", content(ps + warp), sa)
+    save(folder / "target.nii.gz", content(world_grid(rs, ta)), ta)
+    supporting_images(folder, folder / "source.nii.gz")
+    warpres = ",".join(f"{k * v:.6g}" for k, v in zip(ksp, rsp))
+    fnirt = [
+        "fnirt",
+        "--ref=target.nii.gz",
+        "--in=source.nii.gz",
+        "--cout=coef.nii.gz",
+        f"--warpres={warpres}",
+        "--subsamp=1",
+        "--miter=4",
+        "--lambda=30",
+        "--infwhm=0",
+        "--reffwhm=0",
+        "--estint=1",
+        "--applyrefmask=1",
+        "--applyinmask=1",
+        "--intmod=global_linear",
+        f"--splineorder={order}",
+    ]
+    premat = None
+    if with_aff:
+        # World-aligning FLIRT matrix (source FSL -> target FSL) times a small
+        # rotation/anisotropic scaling/translation, so A is far from identity.
+        M = (
+            vox_to_fsl(ta, rs)
+            @ np.linalg.inv(ta)
+            @ sa
+            @ np.linalg.inv(vox_to_fsl(sa, ss))
+        )
+        E = np.eye(4)
+        E[:3, :3] = rot(2, 0.06) @ rot(0, -0.04) @ np.diag([1.04, 0.97, 1.02])
+        E[:3, 3] = [1.3, -0.8, 0.6]
+        premat = E @ M
+        np.savetxt(folder / "premat.mat", premat, fmt="%.10f")
+        fnirt.append("--aff=premat.mat")
+    commands = [
+        fnirt,
+        [
+            "fnirtfileutils",
+            "--in=coef.nii.gz",
+            "--ref=target.nii.gz",
+            "--out=field_noaff.nii.gz",
+        ],
+        [
+            "fnirtfileutils",
+            "--in=coef.nii.gz",
+            "--ref=target.nii.gz",
+            "--out=field_aff.nii.gz",
+            "--withaff",
+        ],
+    ]
+    for name in ["source", "coord0", "coord1", "coord2", "support"]:
+        commands.append(
+            [
+                "applywarp",
+                f"--in={name}.nii.gz",
+                "--ref=target.nii.gz",
+                "--warp=coef.nii.gz",
+                f"--out=native_{name}.nii.gz",
+                "--interp=trilinear",
+            ]
+        )
+    native(work, "FSL", cid, commands, records)
+    dest = out / cid
+    dest.mkdir(exist_ok=True)
+    names = [
+        "source",
+        "target",
+        "coef",
+        "field_noaff",
+        "field_aff",
+        "native_source",
+        "native_coord0",
+        "native_coord1",
+        "native_coord2",
+        "native_support",
+    ]
+    for name in names:
+        shutil.copyfile(folder / (name + ".nii.gz"), dest / (name + ".nii.gz"))
+    if with_aff:
+        shutil.copyfile(folder / "premat.mat", dest / "premat.mat")
+    cases.append(
+        {
+            "id": cid,
+            "source_hand": src_hand,
+            "reference_hand": ref_hand,
+            "with_aff": with_aff,
+            "reference_dim": list(rs),
+            "source_dim": list(ss),
+            "knot_spacing_vox": list(ksp),
+            "warpres_mm": warpres,
+            "spline_order": order,
+        }
+    )
+
+
 n = 0
 for src_hand in ("left", "right"):
     for ref_hand in ("left", "right"):
         for with_aff in (False, True):
-            cid = f"src{src_hand}_ref{ref_hand}_{'aff' if with_aff else 'noaff'}"
-            folder = work / cid
-            if folder.exists():
-                shutil.rmtree(folder)
-            folder.mkdir(parents=True)
-            rs, rsp, ksp = REF_SHAPES[n], REF_SPACING[n], KSP[n]
-            ss = (rs[0] + 4, rs[1] + 3, rs[2] + 5)
-            ssp = tuple(round(v * f, 3) for v, f in zip(rsp, (1.07, 0.93, 1.05)))
-            ta = geometry(
-                rs, rsp, 0.13 + 0.02 * n, ref_hand, np.array([1.0, -1.0, 2.0]) + 0.3 * n
-            )
-            sa = geometry(
-                ss,
-                ssp,
-                -0.21 + 0.03 * n,
-                src_hand,
-                np.array([-2.0, 1.5, -1.0]) - 0.2 * n,
-            )
-            ps = world_grid(ss, sa)
-            warp = np.stack(
-                [
-                    1.6 * np.sin(ps[..., 1] / 7),
-                    1.3 * np.cos(ps[..., 2] / 6),
-                    1.1 * np.sin(ps[..., 0] / 8),
-                ],
-                axis=-1,
-            )
-            save(folder / "source.nii.gz", content(ps + warp), sa)
-            save(folder / "target.nii.gz", content(world_grid(rs, ta)), ta)
-            supporting_images(folder, folder / "source.nii.gz")
-            warpres = ",".join(f"{k * v:.6g}" for k, v in zip(ksp, rsp))
-            fnirt = [
-                "fnirt",
-                "--ref=target.nii.gz",
-                "--in=source.nii.gz",
-                "--cout=coef.nii.gz",
-                f"--warpres={warpres}",
-                "--subsamp=1",
-                "--miter=4",
-                "--lambda=30",
-                "--infwhm=0",
-                "--reffwhm=0",
-                "--estint=1",
-                "--applyrefmask=1",
-                "--applyinmask=1",
-                "--intmod=global_linear",
-                "--splineorder=3",
-            ]
-            premat = None
-            if with_aff:
-                # World-aligning FLIRT matrix (source FSL -> target FSL) times a small
-                # rotation/anisotropic scaling/translation, so A is far from identity.
-                M = (
-                    vox_to_fsl(ta, rs)
-                    @ np.linalg.inv(ta)
-                    @ sa
-                    @ np.linalg.inv(vox_to_fsl(sa, ss))
-                )
-                E = np.eye(4)
-                E[:3, :3] = rot(2, 0.06) @ rot(0, -0.04) @ np.diag([1.04, 0.97, 1.02])
-                E[:3, 3] = [1.3, -0.8, 0.6]
-                premat = E @ M
-                np.savetxt(folder / "premat.mat", premat, fmt="%.10f")
-                fnirt.append("--aff=premat.mat")
-            commands = [
-                fnirt,
-                [
-                    "fnirtfileutils",
-                    "--in=coef.nii.gz",
-                    "--ref=target.nii.gz",
-                    "--out=field_noaff.nii.gz",
-                ],
-                [
-                    "fnirtfileutils",
-                    "--in=coef.nii.gz",
-                    "--ref=target.nii.gz",
-                    "--out=field_aff.nii.gz",
-                    "--withaff",
-                ],
-            ]
-            for name in ["source", "coord0", "coord1", "coord2", "support"]:
-                commands.append(
-                    [
-                        "applywarp",
-                        f"--in={name}.nii.gz",
-                        "--ref=target.nii.gz",
-                        "--warp=coef.nii.gz",
-                        f"--out=native_{name}.nii.gz",
-                        "--interp=trilinear",
-                    ]
-                )
-            native(work, "FSL", cid, commands, records)
-            dest = out / cid
-            dest.mkdir(exist_ok=True)
-            names = [
-                "source",
-                "target",
-                "coef",
-                "field_noaff",
-                "field_aff",
-                "native_source",
-                "native_coord0",
-                "native_coord1",
-                "native_coord2",
-                "native_support",
-            ]
-            for name in names:
-                shutil.copyfile(folder / (name + ".nii.gz"), dest / (name + ".nii.gz"))
-            if with_aff:
-                shutil.copyfile(folder / "premat.mat", dest / "premat.mat")
-            cases.append(
-                {
-                    "id": cid,
-                    "source_hand": src_hand,
-                    "reference_hand": ref_hand,
-                    "with_aff": with_aff,
-                    "reference_dim": list(rs),
-                    "source_dim": list(ss),
-                    "knot_spacing_vox": list(ksp),
-                    "warpres_mm": warpres,
-                }
-            )
+            make_case(src_hand, ref_hand, with_aff, n, 3)
             n += 1
+
+# Quadratic splines (--splineorder=2, intent 2009) on two of the cubic grids:
+# both reference handedness, with and without --aff, and a knot spacing of 1.
+for src_hand, ref_hand, with_aff, n in (("left", "right", True, 3), ("right", "left", False, 4)):
+    make_case(src_hand, ref_hand, with_aff, n, 2)
 
 manifest = {
     "producer": IMAGES["FSL"],
@@ -228,7 +240,7 @@ manifest = {
     "cases": cases,
     "commands": records,
     "semantics": {
-        "coef": "fnirt --cout, cubic spline (intent 2007); sform = --aff FLIRT matrix (identity if none)",
+        "coef": "fnirt --cout, cubic spline (intent 2007), or quadratic (intent 2009) in *_quad cases; sform = --aff FLIRT matrix (identity if none)",
         "field_noaff": "fnirtfileutils relative field, spline displacement only (target FSL mm)",
         "field_aff": "fnirtfileutils --withaff relative field: inv(A) @ target_FSL + d - target_FSL",
         "native_coordK": "applywarp --warp=coef of source RAS coordinate ramp K (trilinear)",
