@@ -17,5 +17,11 @@ detect_transform_type(path, source_affine = NULL, target_affine = NULL)
 Character scalar naming the detected transform family
 }
 \description{
-Detect transform type from a file path
+NIfTI vector fields are classified from the header before the filename:
+FSL intent codes 2006 (dense field) and 2007--2009 (coefficients) and the
+ITK vector layout (5D with intent 1007) are definitive. Otherwise filename
+hints apply, then the layout: a 4D \code{(X, Y, Z, 3)} field is FSL's
+layout (ITK/ANTs cannot read it), and remaining fields default to ANTs.
+Dense FSL fields need source image geometry, so an FSL result is only
+usable with \code{source_affine} and \code{source_dim}.
 }

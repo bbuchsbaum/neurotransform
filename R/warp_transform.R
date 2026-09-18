@@ -32,12 +32,6 @@ warp_transform_coords <- function(morphism, coords) {
 
   method <- morphism@params$warp_method %||% "linear"
 
-  # FNIRT coefficient fields are not dense displacements; evaluate cubic
-  # B-spline basis directly at query coordinates.
-  if (identical(warp$mode %||% "", "bspline_coefficients")) {
-    return(cpp_apply_bspline_coeff_field(coords, warp$array, warp$dim, warp$world_to_vox))
-  }
-
   coords_in <- coords
 
   # Note: For ANTs composite H5 files, the embedded affine is typically meant to be

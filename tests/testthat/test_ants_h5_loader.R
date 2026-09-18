@@ -214,3 +214,34 @@ test_that("H5 loading refuses malformed affine and displacement parameters", {
     expect_error(read_transform(path), case[[4]])
   }
 })
+
+test_that("affine-only H5 composites route through the ITK affine reader", {
+  skip_if_not_installed("hdf5r")
+  path <- tempfile(fileext = ".h5")
+  on.exit(unlink(path))
+  A <- matrix(c(1.1, 0.05, 0, -0.03, 0.95, 0.02, 0, 0.01, 1.02), 3, byrow = TRUE)
+  t_lps <- c(2, -3, 4)
+  center <- c(5, -6, 7)
+  write_ants_h5_fixture(path, include_warp = FALSE, affine_matrix = A,
+                        affine_translation = t_lps, affine_center = center)
+
+  # ITK maps fixed to moving points in LPS: y = A (x - c) + t + c.
+  flip <- c(-1, -1, 1)
+  points_ras <- rbind(c(0, 0, 0), c(10, -20, 30), c(-7, 3, 12))
+  expected <- t(apply(points_ras, 1, function(p) flip * (A %*% (flip * p - center) + t_lps + center)))
+
+  for (m in list(read_transform(path), read_transform(path, type = "ants_h5"),
+                 ants_h5_morphism(path))) {
+    expect_s4_class(m, "Affine3DMorphism")
+    expect_equal(unname(transform(m, points_ras)), expected, tolerance = 1e-10)
+  }
+  expect_equal(detect_transform_type(path), "itk_affine")
+  expect_error(ants_h5_morphism(path, apply_affine = FALSE), "no displacement component")
+
+  two <- tempfile(fileext = ".h5")
+  on.exit(unlink(two), add = TRUE)
+  write_ants_h5_fixture(two, include_warp = FALSE,
+                        component_order = c("affine", "affine"))
+  expect_error(ants_h5_morphism(two), "contains 2 linear transforms")
+  expect_length(read_linear_transform_array(two, format = "itk")$transforms, 2L)
+})

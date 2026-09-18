@@ -13,9 +13,28 @@ test_that("FSL warp morphism can be created", {
   skip_if_not(file.exists(warp_path))
 
   # Test that the morphism can be created
-  morph <- Warp3DMorphism("native", "standard", warp_path = warp_path, warp_type = "fsl")
+  morph <- Warp3DMorphism("native", "standard", warp_path = warp_path, warp_type = "fsl",
+                          source_affine = diag(4), source_dim = c(3L, 3L, 3L))
   expect_s4_class(morph, "Warp3DMorphism")
   expect_equal(morph@warp_type, "fsl")
+})
+
+test_that("FSL warp construction fails without usable image geometry", {
+  warp_path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
+  skip_if_not(file.exists(warp_path))
+
+  expect_error(Warp3DMorphism("native", "standard", warp_path, warp_type = "fsl"),
+               "require source_affine and source_dim")
+  expect_error(Warp3DMorphism("native", "standard", warp_path, warp_type = "fsl",
+                              source_affine = diag(4)),
+               "Supply both source_affine and source_dim")
+  expect_error(Warp3DMorphism("native", "standard", warp_path, warp_type = "fsl",
+                              source_affine = diag(4), source_dim = c(3, 3, 3, 1)),
+               "dim\\(image\\)\\[1:3\\]")
+  expect_error(Warp3DMorphism("native", "standard", warp_path, warp_type = "fsl",
+                              source_affine = diag(4), source_dim = c(3, 3, 3),
+                              target_dim = c(3, 3, 3)),
+               "Supply both target_affine and target_dim")
 })
 
 test_that("detect_fnirt_def_type works on synthetic relative warp",

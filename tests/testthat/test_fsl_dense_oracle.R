@@ -45,13 +45,12 @@ test_that("dense FSL fields match native applywarp for both grid handednesses", 
 
 test_that("FSL geometry is required and participates in decoding and caching", {
   d <- fsl_dense_case("right_left_relative")
-  missing_geometry <- read_transform(d$args$path, type = "fsl")
-  expect_error(transform(missing_geometry, d$world[10, , drop = FALSE]),
+  # Geometry problems surface when the transform is read, not at first use.
+  expect_error(read_transform(d$args$path, type = "fsl"),
                "require source_affine and source_dim")
   args <- d$args
   args$source_dim <- c(3, -1, 4)
-  expect_error(transform(do.call(read_transform, args), d$world[10, , drop = FALSE]),
-               "positive integer")
+  expect_error(do.call(read_transform, args), "positive integer")
   first <- do.call(read_transform, d$args)
   args <- d$args
   args$source_affine[1:3, 4] <- args$source_affine[1:3, 4] + c(3, -2, 1)
@@ -107,4 +106,52 @@ test_that("inverting FSL fields swaps source and reference geometry", {
   expect_equal(inv@params$target_affine, m@params$source_affine)
   expect_equal(inv@params$target_dim, m@params$source_dim)
   expect_equal(invert(inv)@params, m@params)
+})
+
+test_that("dense FSL fields default the reference geometry to the warp lattice", {
+  for (id in c("left_left", "left_right", "right_left", "right_right")) {
+    for (representation in c("relative", "absolute")) {
+      d <- fsl_dense_case(paste(id, representation, sep = "_"))
+      args <- d$args
+      args$target_affine <- NULL
+      args$target_dim <- NULL
+      m <- do.call(read_transform, args)
+      expect_null(m@params$target_affine)
+      actual <- transform(m, d$world[d$mask, ])
+      expect_lt(max(abs(actual - d$expected[d$mask, ])), 3e-5)
+    }
+  }
+})
+
+test_that("inverting without reference geometry reads it from the forward header", {
+  d <- fsl_dense_case("left_right_relative")
+  m <- Warp3DMorphism("source", "target", d$args$path, warp_type = "fsl",
+                      inverse_path = d$args$path,
+                      source_affine = d$args$source_affine, source_dim = d$args$source_dim)
+  inv <- invert(m)
+  lattice <- load_warp_neuroim2(d$args$path)
+  expect_equal(inv@params$source_affine, lattice$vox_to_world, tolerance = 1e-6)
+  expect_equal(inv@params$source_dim, lattice$dim)
+  expect_equal(inv@params$target_affine, d$args$source_affine)
+  expect_error(invert(Warp3DMorphism("s", "t", tempfile(fileext = ".nii.gz"), warp_type = "fsl",
+                                     inverse_path = d$args$path,
+                                     source_affine = d$args$source_affine,
+                                     source_dim = d$args$source_dim)),
+               "Warp file not found")
+})
+
+test_that("native FSL fields are detected as FSL and need source geometry", {
+  for (id in c("left_left", "left_right", "right_left", "right_right")) {
+    for (representation in c("relative", "absolute")) {
+      d <- fsl_dense_case(paste(id, representation, sep = "_"))
+      expect_equal(detect_transform_type(d$args$path), "fsl")
+      expect_error(read_transform(d$args$path), "Detected a dense FSL warp field")
+      inferred <- read_transform(d$args$path,
+                                 source_affine = d$args$source_affine,
+                                 source_dim = d$args$source_dim)
+      expect_equal(inferred@warp_type, "fsl")
+      expect_equal(inferred@params$def_type, representation)
+      expect_lt(max(abs(transform(inferred, d$world[d$mask, ]) - d$expected[d$mask, ])), 3e-5)
+    }
+  }
 })

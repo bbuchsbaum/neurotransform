@@ -10,11 +10,17 @@ load_warp_fsl_coef(path)
 \item{path}{Path to coefficient NIfTI file}
 }
 \value{
-List with array, dim, world_to_vox, vox_to_world, mode
+List with \code{coef} (coefficient array, components last),
+\code{knot}, \code{order}, \code{ref_dim}, \code{ref_voxel}, \code{affine}
+(the FLIRT matrix), and \code{mode = "fsl_spline_coefficients"}.
 }
 \description{
-Loads an FNIRT coefficient field as B-spline coefficients. This is not a
-dense displacement field and must be evaluated through the cubic B-spline
-basis at query coordinates.
+Reads an FNIRT spline-coefficient file (\code{fnirt --cout}) without
+interpreting it. The header does not describe a world grid: it stores the
+knot spacing, the reference dimensions and voxel size, and the \code{--aff}
+FLIRT matrix. \code{load_warp_array()} decodes the coefficients into a dense
+field on the reference grid, which requires the reference and source image
+geometry. Files without an FSL spline intent (2007 cubic, 2009 quadratic),
+such as DCT coefficient files, are rejected.
 }
 \keyword{internal}

@@ -51,6 +51,14 @@ grid_of <- function(x) {
 
 #' Detect transform type from a file path
 #'
+#' NIfTI vector fields are classified from the header before the filename:
+#' FSL intent codes 2006 (dense field) and 2007--2009 (coefficients) and the
+#' ITK vector layout (5D with intent 1007) are definitive. Otherwise filename
+#' hints apply, then the layout: a 4D \code{(X, Y, Z, 3)} field is FSL's
+#' layout (ITK/ANTs cannot read it), and remaining fields default to ANTs.
+#' Dense FSL fields need source image geometry, so an FSL result is only
+#' usable with \code{source_affine} and \code{source_dim}.
+#'
 #' @param path Transform file path
 #' @param source_affine Optional source affine used to disambiguate linear files
 #' @param target_affine Optional target affine used to disambiguate linear files
@@ -88,8 +96,16 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
     ))
   }
 
-  # NIfTI warps: use lightweight filename heuristics for better defaulting.
+  # NIfTI warps: definitive header intents first, then filename hints, then
+  # the vector layout. ITK/ANTs and AFNI write (X, Y, Z, 1, 3); FSL writes
+  # (X, Y, Z, 3), which ITK cannot read as a displacement field.
   if (grepl("\\.(nii|nii\\.gz)$", lower)) {
+    layout <- .nifti_vector_layout(path)
+    if (!is.null(layout)) {
+      if (layout$intent == 2006L) return("fsl")
+      if (layout$intent %in% 2007:2009) return("fsl_coef")
+      if (layout$intent == 1007L && identical(layout$shape, "5d")) return("ants")
+    }
     if (grepl("coef|coeff|warpcoef|fieldcoef", lower)) {
       return("fsl_coef")
     }
@@ -99,6 +115,9 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
     if (grepl("qwarp|3dqwarp|_afni_|/afni/", lower)) {
       return("afni")
     }
+    if (!is.null(layout) && identical(layout$shape, "4d")) {
+      return("fsl")
+    }
     return("ants")
   }
 
@@ -107,6 +126,23 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
   if (grepl("fnirt", base)) return("fsl")
   if (grepl("qwarp|3dqwarp", base)) return("afni")
   "ants"
+}
+
+# Header-only description of a NIfTI vector field, or NULL if unreadable.
+.nifti_vector_layout <- function(path) {
+  if (!requireNamespace("RNifti", quietly = TRUE)) return(NULL)
+  h <- tryCatch(RNifti::niftiHeader(path), error = function(e) NULL)
+  if (is.null(h)) return(NULL)
+  nd <- as.integer(h$dim[1])
+  d <- as.integer(h$dim[seq_len(nd) + 1L])
+  shape <- if (nd == 4L && d[4] == 3L) {
+    "4d"
+  } else if (nd == 5L && d[4] == 1L && d[5] == 3L) {
+    "5d"
+  } else {
+    "other"
+  }
+  list(shape = shape, intent = as.integer(h$intent_code))
 }
 
 .detect_h5_transform_type <- function(path) {
@@ -225,6 +261,13 @@ read_transform <- function(path, type = NULL, source = NULL, target = NULL, appl
   }
   if (type %in% c("ants", "fsl", "fsl_coef", "afni")) {
     def_type <- extra$def_type %||% NULL
+    if (isTRUE(inferred_type) && identical(type, "fsl") &&
+        (is.null(extra$source_affine) || is.null(extra$source_dim))) {
+      stop("Detected a dense FSL warp field (FSL intent, filename, or 4D vector layout). ",
+           "Dense FSL warps require source_affine and source_dim; supply the source ",
+           "image geometry, or pass `type` explicitly if this is not an FSL field.",
+           call. = FALSE)
+    }
     if (isTRUE(inferred_type) && identical(type, "fsl") && is.null(def_type)) {
       def_type <- tryCatch(
         detect_fnirt_def_type(path),

@@ -183,28 +183,42 @@ warp <- Warp3DMorphism(
 
 ### FSL Transforms
 
-FSL FLIRT produces affine matrices in scaled voxel coordinates:
+FSL expresses FLIRT matrices and FNIRT fields in scaled-voxel coordinates,
+which depend on each image's voxel grid and handedness. Reading them therefore
+requires the image geometry, not just the file:
 
 ```{r}
-# Load FSL FLIRT affine
-# Requires source and target image affines for proper conversion
-fsl_aff <- fsl_flirt_to_internal_affine(
-  "flirt.mat",
-  source_affine = src_img_affine,
-  target_affine = tgt_img_affine
+src <- neuroim2::read_vol("highres.nii.gz")
+ref <- neuroim2::read_vol("standard.nii.gz")
+
+# FLIRT affine (source -> reference)
+aff <- read_linear_transform(
+  "highres2standard.mat", format = "fsl",
+  source = "native", target = "standard",
+  source_affine = neuroim2::trans(src), source_dim = dim(src)[1:3],
+  target_affine = neuroim2::trans(ref), target_dim = dim(ref)[1:3]
 )
 
-# Create morphism
-aff <- Affine3DMorphism("native", "standard", matrix = fsl_aff)
+# Dense FNIRT field (fnirt --fout, convertwarp, invwarp). The field lies on the
+# reference grid, so only the source geometry has to be supplied.
+warp <- read_transform(
+  "highres2standard_warp.nii.gz", type = "fsl",
+  source = "native", target = "standard",
+  source_affine = neuroim2::trans(src), source_dim = dim(src)[1:3]
+)
+```
 
-# FSL FNIRT warps
-warp <- Warp3DMorphism(
-  source = "native",
-  target = "mni",
-  warp_path = "fnirt_warp.nii.gz",
-  warp_type = "fsl",
-  source_affine = src_img_affine, source_dim = src_img_dim,
-  target_affine = tgt_img_affine, target_dim = tgt_img_dim
+A field written by `fnirt --fout` already contains the FLIRT affine, so use it
+on its own rather than composing it with `aff`. The same holds for coefficient
+files (`fnirt --cout`), which also need the reference geometry because they do
+not store its orientation or origin:
+
+```{r}
+warp <- read_transform(
+  "highres2standard_warp_coef.nii.gz", type = "fsl_coef",
+  source = "native", target = "standard",
+  source_affine = neuroim2::trans(src), source_dim = dim(src)[1:3],
+  target_affine = neuroim2::trans(ref), target_dim = dim(ref)[1:3]
 )
 ```
 

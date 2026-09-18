@@ -40,12 +40,15 @@ Warp3DMorphism(
 \item{method_tag}{Method tag (default "anatomical")}
 
 \item{source_affine, source_dim}{Source image voxel-to-RAS affine and three
-dimensions. Required when evaluating dense FSL fields: their values use
-source scaled-voxel coordinates, which cannot be recovered from the warp.}
+dimensions. Required for FSL warps (\code{warp_type = "fsl"} or
+\code{"fsl_coef"}), and construction fails without them: FSL field values
+are source scaled-voxel coordinates, which cannot be recovered from the warp.}
 
 \item{target_affine, target_dim}{Reference image voxel-to-RAS affine and three
-dimensions for dense FSL fields. If both are omitted, use the warp lattice.
-Supply both when the field lattice differs from the reference image grid.}
+dimensions. For dense FSL fields they default to the warp lattice; supply
+both when the field lattice differs from the reference image grid. Required
+for FNIRT coefficient files (\code{"fsl_coef"}), which store the reference
+dimensions and voxel size but not its orientation or origin.}
 }
 \value{
 Warp3DMorphism object

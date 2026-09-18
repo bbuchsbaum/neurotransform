@@ -5,8 +5,9 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 
-os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/neurotransform-qa-matplotlib")
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "neurotransform-qa-matplotlib"))
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

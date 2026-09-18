@@ -4,21 +4,28 @@
 \alias{detect_fnirt_def_type}
 \title{Detect FNIRT deformation type (relative vs absolute)}
 \usage{
-detect_fnirt_def_type(warp_path, sample_n = 200, threshold_mm = 5)
+detect_fnirt_def_type(warp_path, sample_n = 1000, threshold_mm = NULL)
 }
 \arguments{
 \item{warp_path}{Path to FNIRT warp file}
 
-\item{sample_n}{Number of voxels to sample for heuristic}
+\item{sample_n}{Approximate number of lattice points used for the fit}
 
-\item{threshold_mm}{Threshold for displacement magnitude heuristic}
+\item{threshold_mm}{Deprecated and ignored; retained for compatibility.}
 }
 \value{
 "relative" or "absolute"
 }
 \description{
-Heuristically determines whether an FNIRT warp stores relative
-displacements or absolute coordinates.
+Determines whether a dense FSL warp stores relative displacements or
+absolute source coordinates. Field values are fitted as a linear function of
+the reference FSL coordinates, \eqn{v \approx M x + t}. Read as absolute,
+the implied Jacobian of the reference-to-source mapping is \eqn{M}; read as
+relative, it is \eqn{M + I}. The representation whose Jacobian determinant is
+closer to volume-preserving is returned. Unlike a displacement-magnitude
+threshold, this is unaffected by large translations between the image
+frames, and the wrong reading of a registration is strongly penalized
+(\eqn{R - I} is singular for any rotation \eqn{R}).
 }
 \examples{
 \dontrun{

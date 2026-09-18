@@ -177,7 +177,8 @@ test_that("read_transform respects explicit type", {
                            package = "neurotransform")
   skip_if_not(file.exists(warp_path))
 
-  result <- read_transform(warp_path, type = "fsl")
+  result <- read_transform(warp_path, type = "fsl",
+                           source_affine = diag(4), source_dim = c(10L, 10L, 10L))
   expect_s4_class(result, "Warp3DMorphism")
   expect_equal(result@warp_type, "fsl")
 })

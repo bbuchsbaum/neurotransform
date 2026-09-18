@@ -194,11 +194,14 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @param def_type Deformation type: "relative" (displacement) or "absolute" (coordinates)
 #' @param warp_method Interpolation method for warp field lookup: "linear" or "cubic"
 #' @param source_affine,source_dim Source image voxel-to-RAS affine and three
-#'   dimensions. Required when evaluating dense FSL fields: their values use
-#'   source scaled-voxel coordinates, which cannot be recovered from the warp.
+#'   dimensions. Required for FSL warps (\code{warp_type = "fsl"} or
+#'   \code{"fsl_coef"}), and construction fails without them: FSL field values
+#'   are source scaled-voxel coordinates, which cannot be recovered from the warp.
 #' @param target_affine,target_dim Reference image voxel-to-RAS affine and three
-#'   dimensions for dense FSL fields. If both are omitted, use the warp lattice.
-#'   Supply both when the field lattice differs from the reference image grid.
+#'   dimensions. For dense FSL fields they default to the warp lattice; supply
+#'   both when the field lattice differs from the reference image grid. Required
+#'   for FNIRT coefficient files (\code{"fsl_coef"}), which store the reference
+#'   dimensions and voxel size but not its orientation or origin.
 #' @param cost Path cost (default 1.5)
 #' @param method_tag Method tag (default "anatomical")
 #' @return Warp3DMorphism object
@@ -223,6 +226,18 @@ Warp3DMorphism <- function(source, target, warp_path,
   if (!is.character(source) || length(source) != 1L) stop("source must be a single character")
   if (!is.character(target) || length(target) != 1L) stop("target must be a single character")
   if (!nzchar(warp_path)) stop("warp_path must be provided")
+  if (warp_type %in% c("fsl", "fsl_coef")) {
+    # Fail at construction rather than at first use: the field cannot be
+    # interpreted without the source image geometry, and coefficient files do
+    # not store the reference orientation or origin.
+    .fsl_check_geometry(source_affine, source_dim, "source")
+    if (identical(warp_type, "fsl_coef")) {
+      .fsl_check_geometry(target_affine, target_dim, "target",
+                          why = "the reference orientation and origin are not stored in FNIRT coefficient files")
+    } else {
+      .fsl_check_geometry(target_affine, target_dim, "target", required = FALSE)
+    }
+  }
 
   # Determine inverse properties
   if (nzchar(inverse_path)) {
@@ -723,17 +738,25 @@ setMethod("invert", "Warp3DMorphism", function(object) {
   target_affine <- object@params$target_affine
   target_dim <- object@params$target_dim
   if (identical(object@warp_type, "fsl") && is.null(target_affine) && is.null(target_dim)) {
-    # The forward field lattice supplies the default reference geometry.
-    field <- load_warp_neuroim2(object@warp_path)
-    target_affine <- field$vox_to_world
-    target_dim <- field$dim
+    # The forward field lattice supplies the default reference geometry; only
+    # its header is needed.
+    if (!file.exists(object@warp_path)) stop("Warp file not found: ", object@warp_path)
+    header <- neuroim2::read_header(object@warp_path)
+    target_affine <- neuroim2::trans(header)
+    target_dim <- as.integer(dim(header)[1:3])
+  }
+  warp_type <- object@warp_type
+  if (identical(warp_type, "fsl_coef")) {
+    # invwarp writes dense fields even when the forward warp is a coefficient file.
+    intent <- .nifti_vector_layout(object@inverse_path)$intent %||% 0L
+    if (!intent %in% 2007:2009) warp_type <- "fsl"
   }
   Warp3DMorphism(
     source = target_of(object),
     target = source_of(object),
     warp_path = object@inverse_path,
     inverse_path = object@warp_path,
-    warp_type = object@warp_type,
+    warp_type = warp_type,
     def_type = object@params$def_type %||% "relative",
     warp_method = object@params$warp_method %||% "linear",
     source_affine = target_affine, source_dim = target_dim,

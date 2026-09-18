@@ -13,3 +13,5 @@
 ^inst/extdata/demo1$
 ^output$
 ^tools$
+^inst/extdata/fsl/(highres|standard2highres)
+^\.ruff_cache$

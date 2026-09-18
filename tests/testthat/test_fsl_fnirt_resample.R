@@ -1,325 +1,197 @@
-# FSL FNIRT Nonlinear Warp Resampling Tests
+# Real FLIRT/FNIRT validation against native FSL 5.0.9 outputs.
 #
-# These tests validate FSL FNIRT warp handling against FSL reference outputs.
-# Similar to test_afni_nonlinear_resample.R, these tests ensure that:
-# 1. FNIRT warps can be loaded and applied correctly
-# 2. Coordinate transformations produce reasonable results
-# 3. Resampled volumes correlate with FSL's applywarp output
-#
-# Test data generation:
-#   Run inst/extdata/fsl/register_to_mni.sh to generate real FNIRT warps
-#   (requires FSL to be installed)
+# The fixtures are large, so they are generated locally rather than shipped:
+# run inst/extdata/fsl/register_to_mni.sh (its header shows a Docker command
+# using the same pinned FSL image as the other native fixtures). Without them
+# these tests skip. Every expected value below comes from FSL itself:
+# applywarp and flirt resampling, convertwarp's absolute field, fnirtfileutils'
+# affine-free field and Jacobian, and invwarp.
 
-# ==============================================================================
-# FNIRT WARP LOADING TESTS
-# ==============================================================================
+fnirt_file <- function(name) {
+  system.file("extdata", "fsl", name, package = "neurotransform")
+}
 
-test_that("FSL FNIRT warp loads correctly", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available (run register_to_mni.sh)")
-
-  # Test that the warp can be loaded
-
-  morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
-  expect_s4_class(morph, "Warp3DMorphism")
-  expect_equal(morph@warp_type, "fsl")
-
-  # Load the warp array and verify structure
-  warp <- neurotransform:::load_warp_array(morph)
-  expect_true(length(warp$dim) == 3)
-  expect_true(all(warp$dim > 0))
-  expect_true(length(warp$array) == prod(warp$dim) * 3)
-})
-
-test_that("FSL FNIRT inverse warp loads correctly", {
-  inv_warp_path <- system.file("extdata/fsl/standard2highres_warp.nii.gz",
-                               package = "neurotransform")
-  skip_if_not(file.exists(inv_warp_path), "Inverse FNIRT warp not available")
-
-  morph <- Warp3DMorphism("mni", "native", warp_path = inv_warp_path, warp_type = "fsl")
-  expect_s4_class(morph, "Warp3DMorphism")
-
-  warp <- neurotransform:::load_warp_array(morph)
-  expect_true(all(warp$dim > 0))
-})
-
-# ==============================================================================
-# COORDINATE TRANSFORMATION TESTS
-# ==============================================================================
-
-test_that("FSL FNIRT warp transforms coordinates within expected range", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  inv_warp_path <- system.file("extdata/fsl/standard2highres_warp.nii.gz",
-                               package = "neurotransform")
-
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not(file.exists(inv_warp_path), "Inverse FNIRT warp not available")
-
-  # Create morphisms
-  fwd_morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
-  inv_morph <- Warp3DMorphism("mni", "native", warp_path = inv_warp_path, warp_type = "fsl")
-
-  # Test coords in MNI space (where the forward warp is defined)
-  test_coords <- matrix(c(
-     0,  0,  0,   # MNI origin
-    10, 20, 30,   # Arbitrary point
-   -20, 40, 50    # Another point
-  ), ncol = 3, byrow = TRUE)
-
-  # Both warps should transform coordinates
-
-warped_fwd <- transform(fwd_morph, test_coords)
-  warped_inv <- transform(inv_morph, test_coords)
-
-  # Warped coordinates should be finite
-  expect_true(all(is.finite(warped_fwd)))
-  expect_true(all(is.finite(warped_inv)))
-
-  # Warped coordinates should be within reasonable neuroimaging bounds (±200mm)
-  expect_true(all(abs(warped_fwd) < 200))
-  expect_true(all(abs(warped_inv) < 200))
-
-  # Displacements should be non-trivial (warps are not identity)
-  disp_fwd <- warped_fwd - test_coords
-  disp_inv <- warped_inv - test_coords
-  expect_gt(max(abs(disp_fwd)), 0.5)  # At least 0.5mm displacement somewhere
-  expect_gt(max(abs(disp_inv)), 0.5)
-})
-
-test_that("FSL FNIRT forward/inverse warp round-trip is approximately correct", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  inv_warp_path <- system.file("extdata/fsl/standard2highres_warp.nii.gz",
-                               package = "neurotransform")
-
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not(file.exists(inv_warp_path), "Inverse FNIRT warp not available")
-
-  fwd_morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
-  inv_morph <- Warp3DMorphism("mni", "native", warp_path = inv_warp_path, warp_type = "fsl")
-
-  # Test coordinates near center of brain in MNI space
-  test_coords <- matrix(c(
-     0,  0,  20,  # Near AC
-    20, -20, 40,  # Parietal region
-   -30,  10, 10   # Left frontal
-  ), ncol = 3, byrow = TRUE)
-
-  # Forward then inverse should approximately recover original
-  warped <- transform(fwd_morph, test_coords)
-  recovered <- transform(inv_morph, warped)
-
-  # Should be close to original (within a few mm due to interpolation)
-  max_error <- max(abs(recovered - test_coords))
-  expect_lt(max_error, 5)  # Within 5mm
-})
-
-# ==============================================================================
-# DEFORMATION TYPE DETECTION TESTS
-# ==============================================================================
-
-test_that("detect_fnirt_def_type correctly identifies real FNIRT warp as relative", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not_installed("neuroim2")
-
-  # Real FNIRT warps typically store relative displacements
-  def_type <- detect_fnirt_def_type(warp_path, sample_n = 200, threshold_mm = 50)
-
-  # FNIRT --fout produces relative displacement fields
-  expect_equal(def_type, "relative")
-})
-
-# ==============================================================================
-# VOLUME RESAMPLING VALIDATION TESTS
-# ==============================================================================
-
-test_that("FSL FNIRT resample produces output (functional test)", {
+fnirt_fixture <- function() {
+  names <- c(
+    mat = "highres2standard.mat",
+    warp = "highres2standard_warp.nii.gz",
+    abs = "highres2standard_warp_abs.nii.gz",
+    noaff = "highres2standard_warp_noaff.nii.gz",
+    coef = "highres2standard_warp_coef.nii.gz",
+    jac = "highres2standard_jac.nii.gz",
+    inv = "standard2highres_warp.nii.gz",
+    applywarp = "highres_in_mni_applywarp.nii.gz",
+    flirt = "highres_in_mni_flirt.nii.gz"
+  )
+  paths <- vapply(names, fnirt_file, character(1))
+  skip_if_not(all(nzchar(paths)),
+              "Real FNIRT fixtures not generated (run inst/extdata/fsl/register_to_mni.sh)")
   src_path <- system.file("extdata/afni/ss_sub-1001_T1w.nii.gz", package = "neurotransform")
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  ref_path <- system.file("extdata/fsl/highres_in_mni.nii.gz",
-                          package = "neurotransform")
-
-  skip_if_not(file.exists(src_path), "Source image not available")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not(file.exists(ref_path), "Reference output not available")
+  skip_if_not(nzchar(src_path), "Source image not available")
   skip_if_not_installed("neuroim2")
 
-  src <- read_image(src_path)
-  ref <- read_image(ref_path)
-
-  morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
-
-  # This should run without error
-  out <- resample_to(src, target = ref, transform = morph, method = "linear")
-
-  # Output should have correct dimensions
-  expect_equal(dim(out)[1:3], dim(ref)[1:3])
-
-  out_arr <- as.array(out)
-  if (length(dim(out_arr)) == 4) out_arr <- out_arr[, , , 1, drop = TRUE]
-
-  # Output should have some non-zero values
-  expect_gt(sum(out_arr > 0, na.rm = TRUE), 1000)
-})
-
-test_that("FSL FNIRT resample correlates with FSL applywarp reference", {
-  # This is the key validation test: our resampling should match FSL's output
-
-  src_path <- system.file("extdata/afni/ss_sub-1001_T1w.nii.gz", package = "neurotransform")
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  ref_path <- system.file("extdata/fsl/highres_in_mni_applywarp.nii.gz",
-                          package = "neurotransform")
-
-  skip_if_not(file.exists(src_path), "Source image not available")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not(file.exists(ref_path), "FSL applywarp reference not available")
-
-  src <- read_image(src_path)
-  ref <- read_image(ref_path)
-
-  morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
-  out <- resample_to(src, target = ref, transform = morph, method = "linear")
-
-  out_arr <- as.array(out)
-  ref_arr <- as.array(ref)
-  if (length(dim(out_arr)) == 4) out_arr <- out_arr[, , , 1, drop = TRUE]
-  if (length(dim(ref_arr)) == 4) ref_arr <- ref_arr[, , , 1, drop = TRUE]
-
-  # Create mask of valid voxels
-  mask <- is.finite(out_arr) & is.finite(ref_arr) & (ref_arr != 0)
-
-  # Should have reasonable mask coverage (at least 10% of brain)
-  expect_gt(mean(mask), 0.1)
-
-  # Correlation with FSL reference output should be high
-  r <- suppressWarnings(cor(as.vector(out_arr[mask]), as.vector(ref_arr[mask])))
-
-  # Expect high correlation (similar to AFNI test threshold)
-  expect_gt(r, 0.8)
-})
-
-# ==============================================================================
-# FLIRT + FNIRT COMBINED PATH TESTS
-# ==============================================================================
-
-test_that("FSL FLIRT affine loads and transforms correctly", {
-  flirt_path <- system.file("extdata/fsl/highres2standard.mat",
-                            package = "neurotransform")
-  src_path <- system.file("extdata/afni/ss_sub-1001_T1w.nii.gz",
-                          package = "neurotransform")
-
-  skip_if_not(file.exists(flirt_path), "Real FLIRT matrix not available")
-  skip_if_not(file.exists(src_path), "Source image not available")
-
-  # Read the FLIRT matrix and source image affine
-  flirt_mat <- as.matrix(read.table(flirt_path))
-  expect_equal(dim(flirt_mat), c(4, 4))
-
-  # FLIRT matrix should be non-identity
-  expect_false(identical(flirt_mat, diag(4)))
-
-  # Should be invertible (not singular)
-  expect_gt(abs(det(flirt_mat)), 0.01)
-})
-
-test_that("FSL FLIRT + FNIRT path produces valid composite transform", {
-  flirt_path <- system.file("extdata/fsl/highres2standard.mat",
-                            package = "neurotransform")
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  src_path <- system.file("extdata/afni/ss_sub-1001_T1w.nii.gz",
-                          package = "neurotransform")
-
-  skip_if_not(file.exists(flirt_path), "Real FLIRT matrix not available")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
-  skip_if_not(file.exists(src_path), "Source image not available")
-  skip_if_not_installed("neuroim2")
-
-  # Load source to get affine
   src <- neuroim2::read_vol(src_path)
-  src_aff <- neuroim2::trans(src)
+  ref <- neuroim2::read_vol(paths[["applywarp"]])
+  grid <- grid_spec(dim(ref)[1:3], neuroim2::trans(ref))
+  list(
+    path = as.list(paths), src = src, ref = ref, grid = grid, points = grid_coords(grid),
+    src_affine = neuroim2::trans(src), src_dim = dim(src)[1:3],
+    mni_affine = neuroim2::trans(ref), mni_dim = dim(ref)[1:3]
+  )
+}
 
-  # MNI 2mm template affine (standard)
-  mni_aff <- diag(c(2, 2, 2, 1))
-  mni_aff[1:3, 4] <- c(-90, -126, -72)  # Standard MNI origin
+fnirt_forward <- function(f, path = f$path$warp, def_type = "relative") {
+  read_transform(path, type = "fsl", source = "native", target = "mni",
+                 def_type = def_type,
+                 source_affine = f$src_affine, source_dim = f$src_dim)
+}
 
-  # Create FLIRT morphism
-  flirt_mat <- as.matrix(read.table(flirt_path))
-  internal_aff <- fsl_flirt_to_internal_affine(flirt_mat, src_aff, mni_aff)
-  aff_morph <- Affine3DMorphism("native", "mni_lin", internal_aff)
+# Target voxels whose source sample lies at least one voxel inside the source
+# grid, so boundary and padding conventions do not enter the comparison.
+interior_samples <- function(f, source_points) {
+  vox <- (cbind(source_points, 1) %*% t(solve(f$src_affine)))[, 1:3, drop = FALSE]
+  rowSums(vox >= 1 & sweep(vox, 2, f$src_dim - 2, "<=")) == 3
+}
 
-  # Create FNIRT morphism
-  warp_morph <- Warp3DMorphism("mni_lin", "mni", warp_path = warp_path, warp_type = "fsl")
+relative_image_error <- function(actual, expected, mask) {
+  actual <- as.numeric(as.array(actual))
+  expected <- as.numeric(as.array(expected))
+  max(abs(actual - expected)[mask]) / diff(range(expected[mask]))
+}
 
-  # Compose into path (FLIRT then FNIRT)
-  path <- compose(aff_morph, warp_morph)
+test_that("real FNIRT outputs are detected by header and representation", {
+  f <- fnirt_fixture()
+  expect_equal(detect_transform_type(f$path$warp), "fsl")
+  expect_equal(detect_transform_type(f$path$coef), "fsl_coef")
+  expect_equal(detect_fnirt_def_type(f$path$warp), "relative")
+  expect_equal(detect_fnirt_def_type(f$path$noaff), "relative")
+  expect_equal(detect_fnirt_def_type(f$path$inv), "relative")
+  expect_equal(detect_fnirt_def_type(f$path$abs), "absolute")
 
-  expect_s4_class(path, "MorphismPath")
-  expect_equal(length(path@morphisms), 2)
-
-  # Test coordinate transform through the full path
-  test_coords <- matrix(c(0, 0, 0), ncol = 3)
-  warped <- transform(path, test_coords)
-
-  expect_true(all(is.finite(warped)))
-  expect_true(all(abs(warped) < 200))
+  expect_error(read_transform(f$path$warp), "Detected a dense FSL warp field")
+  inferred <- read_transform(f$path$warp, source_affine = f$src_affine, source_dim = f$src_dim)
+  expect_equal(inferred@warp_type, "fsl")
+  expect_equal(inferred@params$def_type, "relative")
 })
 
-# ==============================================================================
-# JACOBIAN TESTS FOR FNIRT WARPS
-# ==============================================================================
+test_that("FNIRT resampling reproduces applywarp for relative and absolute fields", {
+  f <- fnirt_fixture()
+  fwd <- fnirt_forward(f)
+  mask <- interior_samples(f, transform(fwd, f$points))
+  expect_gt(mean(mask), 0.9)
+  expected <- neuroim2::read_vol(f$path$applywarp)
 
-test_that("FSL FNIRT warp Jacobian is computed correctly", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
+  # Measured: 1.6e-5 of the intensity range (float32 field and output).
+  # Convention errors produce errors of order 1e-1 or more.
+  out <- resample_to(f$src, f$ref, fwd, method = "linear")
+  expect_lt(relative_image_error(out, expected, mask), 1e-4)
 
-  morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
+  absolute <- fnirt_forward(f, f$path$abs, def_type = "absolute")
+  out_abs <- resample_to(f$src, f$ref, absolute, method = "linear")
+  expect_lt(relative_image_error(out_abs, expected, mask), 1e-4)
 
-  # Test coordinates in the middle of the warp field
-  test_coords <- matrix(c(
-     0,  0,  20,
-    10, 20, 30
-  ), ncol = 3, byrow = TRUE)
-
-  # Compute Jacobian matrices
-  jac <- jacobian(morph, test_coords, mode = "pullback")
-
-  # Should return a JacobianField object
-  expect_s4_class(jac, "JacobianField")
-
-  # Should have correct dimensions
-  expect_equal(length(jac), nrow(test_coords))
-
-  # Jacobian determinants should be positive and reasonable
-  dets <- det(jac)
-  expect_true(all(is.finite(dets)))
-  expect_true(all(dets > 0))  # Orientation-preserving
-  expect_true(all(dets < 10))  # Not extreme expansion
-  expect_true(all(dets > 0.1)) # Not extreme contraction
+  # convertwarp's absolute field encodes the same mapping.
+  sel <- which(mask)[seq(1, sum(mask), length.out = 20000)]
+  pts <- f$points[sel, , drop = FALSE]
+  expect_lt(max(abs(transform(absolute, pts) - transform(fwd, pts))), 1e-4)
 })
 
-test_that("FSL FNIRT warp Jacobian determinant field matches jacobian_det", {
-  warp_path <- system.file("extdata/fsl/highres2standard_warp.nii.gz",
-                           package = "neurotransform")
-  skip_if_not(file.exists(warp_path), "Real FNIRT warp not available")
+test_that("FLIRT matrices reproduce flirt -applyxfm resampling", {
+  f <- fnirt_fixture()
+  aff <- read_linear_transform(f$path$mat, format = "fsl", source = "native", target = "mni",
+                               source_affine = f$src_affine, source_dim = f$src_dim,
+                               target_affine = f$mni_affine, target_dim = f$mni_dim)
+  mask <- interior_samples(f, transform(aff, f$points))
+  out <- resample_to(f$src, f$ref, aff, method = "linear")
+  # Measured: 2.4e-4 of the range against flirt -noresampblur (FLIRT resamples
+  # in single precision). A handedness or origin error gives about 0.5.
+  expect_lt(relative_image_error(out, neuroim2::read_vol(f$path$flirt), mask), 1e-3)
+})
 
-  morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "fsl")
+test_that("FNIRT fields add the nonlinear part after the FLIRT affine", {
+  f <- fnirt_fixture()
+  fwd <- fnirt_forward(f)
+  aff <- read_linear_transform(f$path$mat, format = "fsl", source = "native", target = "mni",
+                               source_affine = f$src_affine, source_dim = f$src_dim,
+                               target_affine = f$mni_affine, target_dim = f$mni_dim)
+  mask <- interior_samples(f, transform(fwd, f$points))
+  sel <- which(mask)[seq(1, sum(mask), length.out = 20000)]
+  pts <- f$points[sel, , drop = FALSE]
 
-  test_coords <- matrix(c(0, 0, 20, 10, 20, 30), ncol = 3, byrow = TRUE)
+  # fnirt --fout = FLIRT pullback plus the affine-free displacement, both in
+  # source FSL coordinates: src_fsl = inv(A) ref_fsl + d(ref).
+  d_fsl <- matrix(as.array(neuroim2::read_vec(f$path$noaff)), ncol = 3)[sel, , drop = FALSE]
+  to_fsl <- fsl_world_to_fsl(f$src_affine, f$src_dim)
+  to_world <- fsl_fsl_to_world(f$src_affine, f$src_dim)
+  src_fsl <- (cbind(transform(aff, pts), 1) %*% t(to_fsl))[, 1:3] + d_fsl
+  expected <- (cbind(src_fsl, 1) %*% t(to_world))[, 1:3]
+  # Measured: 4.3e-6 mm. The field already contains the affine, so it must not
+  # be composed with the FLIRT matrix again.
+  expect_lt(max(abs(transform(fwd, pts) - expected)), 1e-4)
+})
 
-  # Two ways to get Jacobian determinants
-  jac <- jacobian(morph, test_coords)
-  dets_from_field <- det(jac)
+test_that("FNIRT Jacobian determinants match fnirtfileutils --jac", {
+  f <- fnirt_fixture()
+  fwd <- fnirt_forward(f)
+  mask <- interior_samples(f, transform(fwd, f$points)) & as.numeric(as.array(f$ref)) > 0
+  sel <- which(mask)[seq(1, sum(mask), length.out = 5000)]
+  pts <- f$points[sel, , drop = FALSE]
+  fsl_jac <- as.numeric(as.array(neuroim2::read_vol(f$path$jac)))[sel]
 
-  dets_direct <- jacobian_det(morph, test_coords)
+  ours <- jacobian_det(fwd, pts)
+  rel <- abs(ours - fsl_jac) / abs(fsl_jac)
+  # FSL differentiates the spline analytically; we difference the dense field
+  # (measured median 0.36%, p99 2.3%).
+  expect_true(all(sign(ours) == sign(fsl_jac)))
+  expect_lt(median(rel), 0.01)
+  expect_lt(unname(quantile(rel, 0.99)), 0.05)
 
-  # Should match
-  expect_equal(dets_from_field, dets_direct, tolerance = 1e-6)
+  jac <- jacobian(fwd, pts[1:200, , drop = FALSE])
+  expect_equal(det(jac), jacobian_det(fwd, pts[1:200, , drop = FALSE]), tolerance = 1e-8)
+})
+
+test_that("invwarp fields invert FNIRT fields, directly and through invert()", {
+  f <- fnirt_fixture()
+  fwd <- fnirt_forward(f)
+  mask <- interior_samples(f, transform(fwd, f$points)) & as.numeric(as.array(f$ref)) > 0
+  sel <- which(mask)[seq(1, sum(mask), length.out = 5000)]
+  pts <- f$points[sel, , drop = FALSE]
+  native_pts <- transform(fwd, pts)
+
+  # The inverse field lies on the source grid; its values are MNI FSL
+  # coordinates, so its source geometry is the MNI grid.
+  inv <- read_transform(f$path$inv, type = "fsl", source = "mni", target = "native",
+                        source_affine = f$mni_affine, source_dim = f$mni_dim)
+  err <- sqrt(rowSums((transform(inv, native_pts) - pts)^2))
+  # invwarp is an iterative approximation (measured median 0.024 mm, p99 0.14 mm).
+  expect_lt(median(err), 0.1)
+  expect_lt(unname(quantile(err, 0.99)), 0.5)
+
+  paired <- Warp3DMorphism("native", "mni", f$path$warp, warp_type = "fsl",
+                           inverse_path = f$path$inv,
+                           source_affine = f$src_affine, source_dim = f$src_dim)
+  expect_equal(transform(invert(paired), native_pts), transform(inv, native_pts),
+               tolerance = 1e-10)
+})
+
+test_that("FNIRT coefficients reproduce fnirt --fout on the reference grid", {
+  f <- fnirt_fixture()
+  coef <- read_transform(f$path$coef, type = "fsl_coef", source = "native", target = "mni",
+                         source_affine = f$src_affine, source_dim = f$src_dim,
+                         target_affine = f$mni_affine, target_dim = f$mni_dim)
+  # Every MNI voxel (measured 9.6e-6 mm).
+  expect_lt(max(abs(transform(coef, f$points) - transform(fnirt_forward(f), f$points))), 1e-4)
+
+  # invwarp writes a dense field, so the inverse of a coefficient warp is dense.
+  paired <- Warp3DMorphism("native", "mni", f$path$coef, warp_type = "fsl_coef",
+                           inverse_path = f$path$inv,
+                           source_affine = f$src_affine, source_dim = f$src_dim,
+                           target_affine = f$mni_affine, target_dim = f$mni_dim)
+  inv <- invert(paired)
+  expect_equal(inv@warp_type, "fsl")
+  pts <- f$points[seq(1, nrow(f$points), length.out = 2000), , drop = FALSE]
+  native_pts <- transform(coef, pts)
+  direct <- read_transform(f$path$inv, type = "fsl", source_affine = f$mni_affine,
+                           source_dim = f$mni_dim)
+  expect_equal(transform(inv, native_pts), transform(direct, native_pts), tolerance = 1e-10)
 })

@@ -2,18 +2,22 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import shutil
 import sys
+import tempfile
 import numpy as np
 import nibabel as nib
 
 sys.path.insert(0, str(Path(__file__).parent / "visual_qa"))
 from run import ROOT, IMAGES, save, world_grid, phantom, supporting_images, native, apply_commands
 
-out = ROOT / "inst/extdata/fsl_dense_oracle"
-out.mkdir(exist_ok=True)
-work = Path("/private/tmp/neurotransform-fsl-dense-oracle")
-work.mkdir(exist_ok=True)
+# Set NEUROTRANSFORM_ORACLE_OUT to verify reproducibility without replacing fixtures.
+out = Path(os.environ.get("NEUROTRANSFORM_ORACLE_OUT", ROOT / "inst/extdata/fsl_dense_oracle"))
+out.mkdir(parents=True, exist_ok=True)
+# The work directory must be shareable with Docker; override if the default is not.
+work = Path(os.environ.get("NEUROTRANSFORM_ORACLE_WORK", tempfile.gettempdir())) / "neurotransform-fsl-dense-oracle"
+work.mkdir(parents=True, exist_ok=True)
 records, cases = [], []
 
 

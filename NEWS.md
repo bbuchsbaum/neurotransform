@@ -48,3 +48,34 @@
 - Added native FSL 5.0.9 fixtures for all four source/reference handedness pairs,
   with differing oblique grids, relative/absolute fields, image and coordinate
   comparisons, flattened resampling, exports, and Jacobian regression checks.
+- Dense FSL warps now fail when constructed (`Warp3DMorphism()`,
+  `read_transform()`) if `source_affine`/`source_dim` are missing or malformed,
+  instead of at first use.
+- `detect_transform_type()` classifies NIfTI vector fields from the header
+  before the filename: FSL intents 2006 (dense) and 2007--2009 (coefficients),
+  and the ITK 5D vector layout (intent 1007), are definitive, and a 4D
+  `(X, Y, Z, 3)` field is FSL's layout. Real FSL fields were previously
+  auto-detected as ANTs and silently misread. An inferred FSL field without
+  source geometry now errors with a message naming the fix.
+- `detect_fnirt_def_type()` now decides from the linear part of the field
+  (volume-preserving Jacobian test) instead of a displacement-magnitude
+  threshold, which classified real FNIRT relative fields containing a FLIRT
+  affine as absolute. `threshold_mm` is deprecated and ignored.
+- `invert()` on a dense FSL warp reads only the forward field header to obtain
+  the default reference geometry.
+- FNIRT spline-coefficient files (`fnirt --cout`, `warp_type = "fsl_coef"`) are
+  now decoded with FSL's conventions, established against native FSL 5.0.9:
+  knots over FSL's x-flipped reference index, unnormalized cubic (or quadratic)
+  B-spline weights, the `--aff` matrix stored in the sform, and
+  `source_FSL = inv(A) ref_FSL + d`. The coefficients are decoded to the dense
+  field `fnirtfileutils --withaff` would write and share the dense FSL path, so
+  transforms, flattened resampling plans, Jacobians, and exports all apply. The
+  previous evaluator treated the header as a world grid, normalized the
+  weights, and ignored FSL coordinates; it has been removed together with
+  `cpp_apply_bspline_coeff_field()`. Coefficient warps require source and
+  reference geometry (the reference orientation and origin are not stored in
+  the file), and files without FSL spline intents or with a reflecting `--aff`
+  matrix are rejected.
+- Added native FSL 5.0.9 coefficient fixtures (`inst/extdata/fsl_coef_oracle`)
+  for every handedness pair with and without `--aff`, and a script to generate
+  real FLIRT/FNIRT validation data locally (`inst/extdata/fsl/register_to_mni.sh`).

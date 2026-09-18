@@ -68,24 +68,36 @@ fsl_fsl_to_world <- function(affine, dim = NULL) {
   affine %*% fsl_fsl_to_vox(affine, dim = dim)
 }
 
+# Validate one image geometry used to interpret FSL fields. A required pair
+# must be present; an optional pair must be supplied completely or omitted.
+.fsl_check_geometry <- function(affine, dims, label, required = TRUE,
+                                why = paste0("FSL field values are scaled-voxel coordinates of the ",
+                                             label, " image, which cannot be recovered from the warp file")) {
+  if (is.null(affine) && is.null(dims)) {
+    if (!required) return(invisible(NULL))
+    stop("FSL warps require ", label, "_affine and ", label, "_dim: ", why, ".", call. = FALSE)
+  }
+  if (is.null(affine) || is.null(dims)) {
+    stop("Supply both ", label, "_affine and ", label, "_dim, or neither.", call. = FALSE)
+  }
+  if (!is.matrix(affine) || !identical(dim(affine), c(4L, 4L)) ||
+      any(!is.finite(affine)) || abs(det(affine[1:3, 1:3])) < 1e-12 ||
+      any(abs(affine[4, ] - c(0, 0, 0, 1)) > 1e-10)) {
+    stop(label, "_affine must be a finite, nonsingular 4x4 voxel-to-RAS affine", call. = FALSE)
+  }
+  if (!is.numeric(dims) || length(dims) != 3L || any(!is.finite(dims)) ||
+      any(dims < 1 | dims != floor(dims))) {
+    stop(label, "_dim must contain three positive integer dimensions ",
+         "(use dim(image)[1:3] for 4D images)", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 # A dense FSL field maps reference FSL coordinates to source FSL coordinates.
 # Normalize both representations to RAS displacements at the field lattice so
 # coordinate transforms, flattened resampling plans, and Jacobians share it.
 .fsl_dense_to_ras_displacement <- function(field, params) {
-  validate <- function(affine, dims, label) {
-    if (is.null(affine) || is.null(dims)) {
-      stop("Dense FSL warps require ", label, "_affine and ", label, "_dim")
-    }
-    if (!is.matrix(affine) || !identical(dim(affine), c(4L, 4L)) ||
-        any(!is.finite(affine)) || abs(det(affine[1:3, 1:3])) < 1e-12 ||
-        any(abs(affine[4, ] - c(0, 0, 0, 1)) > 1e-10)) {
-      stop(label, "_affine must be a finite, nonsingular 4x4 voxel-to-RAS affine")
-    }
-    if (!is.numeric(dims) || length(dims) != 3L || any(!is.finite(dims)) ||
-        any(dims < 1 | dims != floor(dims))) {
-      stop(label, "_dim must contain three positive integer dimensions")
-    }
-  }
+  validate <- .fsl_check_geometry
   sa <- params$source_affine
   sd <- params$source_dim
   # The field grid is normally the reference image grid. Explicit reference
@@ -108,6 +120,95 @@ fsl_fsl_to_world <- function(affine, dim = NULL) {
   field$array <- as.numeric(t(source_world - world))
   field$def_type <- "relative"
   field
+}
+
+# FNIRT spline-coefficient files (fnirt --cout), established against native
+# FSL 5.0.9 fnirt/fnirtfileutils/applywarp (inst/extdata/fsl_coef_oracle):
+#   dim[1:3]      coefficient counts; dim[4] = 3 displacement components
+#   pixdim[1:3]   knot spacing k in reference voxels
+#   intent        2007 cubic, 2009 quadratic spline
+#   intent_p1..3  reference voxel size (mm)
+#   qoffset       reference dimensions
+#   sform         the --aff FLIRT matrix A (source FSL -> reference FSL)
+# The reference orientation and origin are not stored, so the reference
+# geometry must be supplied. Displacements d are reference FSL mm, with knots
+# over the internal (x-flipped for right-handed images) reference index u:
+#   d(u) = sum C[a,b,c] B(ux/kx - a + o) B(uy/ky - b + o) B(uz/kz - c + o),
+#   o = 1 if k > 1 else 0, with unnormalized weights, and
+#   source_FSL = inv(A) ref_FSL + d.
+
+.fsl_bspline <- function(t, order) {
+  a <- abs(t)
+  if (order == 3L) {
+    ifelse(a < 1, 2 / 3 - a^2 + a^3 / 2, ifelse(a < 2, (2 - a)^3 / 6, 0))
+  } else {
+    ifelse(a < 0.5, 0.75 - a^2, ifelse(a < 1.5, (a - 1.5)^2 / 2, 0))
+  }
+}
+
+# Weights mapping coefficient index (columns) to internal voxel index (rows).
+.fsl_spline_weights <- function(n_vox, n_coef, knot, order) {
+  offset <- if (knot > 1) 1 else 0
+  outer(0:(n_vox - 1), 0:(n_coef - 1), function(u, a) .fsl_bspline(u / knot - a + offset, order))
+}
+
+# Separable evaluation: C (cx, cy, cz) -> field (Nx, Ny, Nz).
+.fsl_spline_evaluate <- function(C, wx, wy, wz) {
+  cd <- dim(C)
+  n <- c(nrow(wx), nrow(wy), nrow(wz))
+  a <- array(wx %*% matrix(C, cd[1]), c(n[1], cd[2], cd[3]))
+  a <- aperm(array(wy %*% matrix(aperm(a, c(2, 1, 3)), cd[2]), c(n[2], n[1], cd[3])), c(2, 1, 3))
+  array(matrix(a, ncol = cd[3]) %*% t(wz), n)
+}
+
+# Decode a coefficient file into the relative dense FSL field that
+# fnirtfileutils --withaff (and fnirt --fout) would write on the reference grid.
+.fsl_coef_to_dense <- function(coef, params) {
+  .fsl_check_geometry(params$target_affine, params$target_dim, "target",
+                      why = "the reference orientation and origin are not stored in FNIRT coefficient files")
+  ref_affine <- params$target_affine
+  ref_dim <- as.integer(params$target_dim)
+  if (!identical(ref_dim, coef$ref_dim)) {
+    stop("target_dim (", paste(ref_dim, collapse = "x"), ") does not match the reference ",
+         "dimensions stored in the coefficient file (", paste(coef$ref_dim, collapse = "x"), ")",
+         call. = FALSE)
+  }
+  voxel <- fsl_spacing_from_affine(ref_affine)[1:3]
+  if (any(abs(voxel - coef$ref_voxel) > 1e-4 * coef$ref_voxel)) {
+    stop("target_affine voxel sizes (", paste(signif(voxel, 6), collapse = ", "),
+         ") do not match the reference voxel sizes stored in the coefficient file (",
+         paste(signif(coef$ref_voxel, 6), collapse = ", "), ")", call. = FALSE)
+  }
+  n_coef <- dim(coef$coef)[1:3]
+  if (coef$order == 3L) {
+    expected <- ifelse(coef$knot > 1, ceiling((ref_dim + 1) / coef$knot) + 2, ref_dim)
+    if (any(n_coef != expected)) {
+      stop("Coefficient grid (", paste(n_coef, collapse = "x"), ") is inconsistent with ",
+           "the reference dimensions and knot spacing (expected ",
+           paste(expected, collapse = "x"), ")", call. = FALSE)
+    }
+  }
+
+  w <- lapply(1:3, function(a) .fsl_spline_weights(ref_dim[a], n_coef[a], coef$knot[a], coef$order))
+  d <- vapply(1:3, function(m) {
+    as.numeric(.fsl_spline_evaluate(coef$coef[, , , m], w[[1]], w[[2]], w[[3]]))
+  }, numeric(prod(ref_dim)))
+  if (det(ref_affine[1:3, 1:3]) > 0) {
+    # Knots run over FSL's x-flipped index; reorder to stored voxel order.
+    stored_x <- rep(seq.int(ref_dim[1], 1L), times = prod(ref_dim[2:3])) +
+      ref_dim[1] * rep(seq_len(prod(ref_dim[2:3])) - 1L, each = ref_dim[1])
+    d <- d[stored_x, , drop = FALSE]
+  }
+
+  vox <- as.matrix(expand.grid(lapply(ref_dim, function(n) 0:(n - 1))))
+  ref_fsl <- (cbind(vox, 1) %*% t(fsl_vox_to_fsl(ref_affine, ref_dim)))[, 1:3, drop = FALSE]
+  src_fsl <- (cbind(ref_fsl, 1) %*% t(solve(coef$affine)))[, 1:3, drop = FALSE] + d
+  list(
+    array = as.numeric(t(src_fsl - ref_fsl)),
+    dim = ref_dim,
+    vox_to_world = ref_affine,
+    world_to_vox = solve(ref_affine)
+  )
 }
 
 #' Convert FLIRT matrix to internal affine
@@ -185,19 +286,26 @@ fsl_load_flirt_morphism <- function(source, target, mat_path,
 
 #' Detect FNIRT deformation type (relative vs absolute)
 #'
-#' Heuristically determines whether an FNIRT warp stores relative
-#' displacements or absolute coordinates.
+#' Determines whether a dense FSL warp stores relative displacements or
+#' absolute source coordinates. Field values are fitted as a linear function of
+#' the reference FSL coordinates, \eqn{v \approx M x + t}. Read as absolute,
+#' the implied Jacobian of the reference-to-source mapping is \eqn{M}; read as
+#' relative, it is \eqn{M + I}. The representation whose Jacobian determinant is
+#' closer to volume-preserving is returned. Unlike a displacement-magnitude
+#' threshold, this is unaffected by large translations between the image
+#' frames, and the wrong reading of a registration is strongly penalized
+#' (\eqn{R - I} is singular for any rotation \eqn{R}).
 #'
 #' @param warp_path Path to FNIRT warp file
-#' @param sample_n Number of voxels to sample for heuristic
-#' @param threshold_mm Threshold for displacement magnitude heuristic
+#' @param sample_n Approximate number of lattice points used for the fit
+#' @param threshold_mm Deprecated and ignored; retained for compatibility.
 #' @return "relative" or "absolute"
 #' @export
 #' @examples
 #' \dontrun{
 #' def_type <- detect_fnirt_def_type("warp.nii.gz")
 #' }
-detect_fnirt_def_type <- function(warp_path, sample_n = 200, threshold_mm = 5) {
+detect_fnirt_def_type <- function(warp_path, sample_n = 1000, threshold_mm = NULL) {
   if (!requireNamespace("neuroim2", quietly = TRUE)) {
     stop("neuroim2 required for FNIRT detection")
   }
@@ -206,43 +314,27 @@ detect_fnirt_def_type <- function(warp_path, sample_n = 200, threshold_mm = 5) {
   img <- neuroim2::read_vec(warp_path)
   dim4 <- dim(img)
   if (length(dim4) < 4 || dim4[4] < 3) stop("Warp must be 4D with last dim length 3")
+  dims <- as.integer(dim4[1:3])
+  if (any(dims < 2L)) return("relative")
 
-  aff <- neuroim2::trans(img)
+  # Regular subgrid of the lattice, 0-based, for a well-conditioned fit.
+  per_axis <- max(2L, ceiling(sample_n^(1 / 3)))
+  axes <- lapply(dims, function(n) unique(round(seq(0, n - 1, length.out = min(n, per_axis)))))
+  vox <- as.matrix(expand.grid(axes))
+  arr <- as.array(img)
+  vals <- sapply(1:3, function(k) arr[cbind(vox + 1L, k)])
+  keep <- rowSums(is.finite(vals)) == 3L & rowSums(vals != 0) > 0L
+  # An all-zero field is the relative identity.
+  if (sum(keep) < 12L) return("relative")
 
-  n_samples <- min(sample_n, prod(dim4[1:3]))
-  sample_ids <- unique(as.integer(round(seq.int(1L, prod(dim4[1:3]), length.out = n_samples))))
-  if (length(sample_ids) < n_samples) {
-    all_ids <- seq_len(prod(dim4[1:3]))
-    sample_ids <- c(sample_ids, all_ids[!all_ids %in% sample_ids][seq_len(n_samples - length(sample_ids))])
+  ref_fsl <- (cbind(vox, 1) %*% t(fsl_vox_to_fsl(neuroim2::trans(img), dims)))[, 1:3, drop = FALSE]
+  coef <- tryCatch(qr.solve(cbind(ref_fsl[keep, , drop = FALSE], 1), vals[keep, , drop = FALSE]),
+                   error = function(e) NULL)
+  if (is.null(coef)) return("relative")
+  M <- t(coef[1:3, , drop = FALSE])
+  distortion <- function(J) {
+    d <- abs(det(J))
+    if (!is.finite(d) || d <= 0) Inf else abs(log(d))
   }
-  vox <- arrayInd(sample_ids, .dim = dim4[1:3], useNames = FALSE)
-  i <- vox[, 1] - 1L
-  j <- vox[, 2] - 1L
-  k <- vox[, 3] - 1L
-
-  vals <- matrix(NA_real_, nrow = n_samples, ncol = 3)
-  coords <- matrix(NA_real_, nrow = n_samples, ncol = 3)
-  vox_to_world <- aff
-
-  for (idx in seq_len(n_samples)) {
-    vals[idx, ] <- img[i[idx] + 1, j[idx] + 1, k[idx] + 1, 1:3]
-    hom <- c(i[idx], j[idx], k[idx], 1)
-    coords[idx, ] <- as.numeric(vox_to_world %*% hom)[1:3]
-  }
-
-  if (all(is.na(vals))) return("relative")
-
-  # Heuristic: absolute fields track coordinates (high correlation)
-  # Relative fields are small shifts with low coord correlation
-  cors <- sapply(1:3, function(k) {
-    suppressWarnings(cor(vals[, k], coords[, k], use = "complete.obs"))
-  })
-
-  if (all(!is.na(cors)) && all(cors > 0.9)) {
-    return("absolute")
-  }
-
-  # Fallback: magnitude heuristic
-  delta <- rowMeans(abs(vals), na.rm = TRUE)
-  if (median(delta, na.rm = TRUE) < threshold_mm) "relative" else "absolute"
+  if (distortion(M) < distortion(M + diag(3))) "absolute" else "relative"
 }

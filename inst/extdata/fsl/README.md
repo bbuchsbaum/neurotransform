@@ -14,25 +14,25 @@ These files are **mock/placeholder data** that exercise code paths without addin
 
 ## Generating Real Test Data
 
-For comprehensive validation against FSL reference output, run the registration script:
+Real FLIRT/FNIRT fixtures are generated locally, not committed (they are
+large; `.gitignore` and `.Rbuildignore` exclude them). With FSL installed:
 
 ```bash
 cd inst/extdata/fsl
-chmod +x register_to_mni.sh
 ./register_to_mni.sh
 ```
 
-**Prerequisites:**
-- FSL installed with `FSLDIR` set
-- AFNI test data generated first (the script uses `../afni/ss_sub-1001_T1w.nii.gz`)
+Without FSL, the script header gives a Docker command using the same pinned
+FSL 5.0.9 image as the other native fixtures (about 7 minutes under
+emulation). The source image is `../afni/ss_sub-1001_T1w.nii.gz`; the
+reference is FSL's `MNI152_T1_2mm_brain`. FSL's outputs are deterministic:
+repeated runs produce byte-identical files.
 
-**Generated files:**
-- `highres2standard.mat` - Real FLIRT affine matrix (12 DOF)
-- `highres2standard_warp.nii.gz` - Real FNIRT warp field (displacement)
-- `highres2standard_warp_coef.nii.gz` - FNIRT coefficient field
-- `highres_in_mni.nii.gz` - FNIRT warped output (reference)
-- `highres_in_mni_applywarp.nii.gz` - applywarp output (reference for validation)
-- `standard2highres_warp.nii.gz` - Inverse warp field
+**Generated files:** the FLIRT matrix and its FLIRT-only resampling (with
+`-noresampblur`, since FLIRT otherwise blurs when downsampling), the FNIRT
+relative field, spline coefficients, affine-free field, absolute-coordinate
+field, FSL Jacobian determinant, FNIRT and `applywarp` outputs (float), and the
+`invwarp` inverse field. The script header lists each file.
 
 ## Alternative: Download FSL Course Data
 
@@ -52,10 +52,12 @@ This provides ~1.3GB of registration examples with various transforms.
 |-----------|-----------|-------------------|
 | `test_fsl_ingest.R` | Synthetic | Roundtrip correctness |
 | `test_fsl_warp.R` | S01_* placeholders | Basic loading, synthetic transforms |
-| `test_fsl_fnirt_resample.R` | Real FNIRT data | FSL applywarp reference output (r > 0.8) |
+| `test_fsl_dense_oracle.R` | `../fsl_dense_oracle` (shipped) | Native `convertwarp`/`applywarp`, all handedness pairs |
+| `test_fsl_fnirt_resample.R` | Real FNIRT data (local) | `applywarp`, `flirt -applyxfm`, `convertwarp`, `fnirtfileutils`, `invwarp` |
 
 ## Notes
 
 - FNIRT warps can be "relative" (displacement) or "absolute" (coordinate) - use `detect_fnirt_def_type()` to auto-detect
+- Dense FNIRT fields need the source image geometry (`source_affine`, `source_dim`); `fnirt --fout` fields already include the FLIRT affine
 - FSL uses "scaled voxel" coordinates for FLIRT matrices - use `fsl_flirt_to_internal_affine()` to convert
 - Large test data files should NOT be committed to git - use `.gitignore` or local cache

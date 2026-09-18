@@ -29,3 +29,8 @@ docs/
 # Regenerable native-tool visual QA outputs
 output/visual-qa/
 tools/visual_qa/__pycache__/
+
+# Locally generated real FNIRT fixtures (inst/extdata/fsl/register_to_mni.sh)
+inst/extdata/fsl/highres*
+inst/extdata/fsl/standard2highres*
+.ruff_cache/

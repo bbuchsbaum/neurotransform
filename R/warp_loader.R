@@ -66,41 +66,53 @@ load_warp_neuroim2 <- function(path) {
 
 #' Default FSL coefficient warp loader
 #'
-#' Loads an FNIRT coefficient field as B-spline coefficients. This is not a
-#' dense displacement field and must be evaluated through the cubic B-spline
-#' basis at query coordinates.
+#' Reads an FNIRT spline-coefficient file (\code{fnirt --cout}) without
+#' interpreting it. The header does not describe a world grid: it stores the
+#' knot spacing, the reference dimensions and voxel size, and the \code{--aff}
+#' FLIRT matrix. \code{load_warp_array()} decodes the coefficients into a dense
+#' field on the reference grid, which requires the reference and source image
+#' geometry. Files without an FSL spline intent (2007 cubic, 2009 quadratic),
+#' such as DCT coefficient files, are rejected.
 #'
 #' @param path Path to coefficient NIfTI file
-#' @return List with array, dim, world_to_vox, vox_to_world, mode
+#' @return List with \code{coef} (coefficient array, components last),
+#'   \code{knot}, \code{order}, \code{ref_dim}, \code{ref_voxel}, \code{affine}
+#'   (the FLIRT matrix), and \code{mode = "fsl_spline_coefficients"}.
 #' @keywords internal
 load_warp_fsl_coef <- function(path) {
   if (!file.exists(path)) stop("Coefficient warp file not found: ", path)
-
-  vol <- tryCatch(neuroim2::read_vec(path), error = function(e) NULL)
-  if (is.null(vol)) vol <- tryCatch(neuroim2::read_vol(path), error = function(e) NULL)
-  if (is.null(vol)) stop("Failed to read coefficient warp: ", path)
-
-  dim4 <- dim(vol)
-  if (length(dim4) < 4 || dim4[4] < 3) {
-    stop("Coefficient warp must be 4D with last dimension length >= 3")
+  if (!requireNamespace("RNifti", quietly = TRUE)) stop("RNifti required to read FNIRT coefficient files")
+  h <- RNifti::niftiHeader(path)
+  fail <- function(...) stop("Not a supported FNIRT coefficient file (", path, "): ", ..., call. = FALSE)
+  if (!h$intent_code %in% c(2007L, 2009L)) {
+    fail("intent code ", h$intent_code, "; expected 2007 (cubic) or 2009 (quadratic spline). ",
+         "Convert other files with fnirtfileutils --withaff to a dense field.")
   }
+  if (h$dim[1] != 4L || h$dim[5] != 3L) fail("expected a 4D array with 3 components")
+  knot <- as.numeric(h$pixdim[2:4])
+  if (any(!is.finite(knot) | knot < 1 | abs(knot - round(knot)) > 1e-4)) {
+    fail("knot spacing (pixdim) must be positive integers")
+  }
+  ref_dim <- c(h$qoffset_x, h$qoffset_y, h$qoffset_z)
+  ref_voxel <- c(h$intent_p1, h$intent_p2, h$intent_p3)
+  if (h$qform_code < 1L || any(ref_dim < 1 | abs(ref_dim - round(ref_dim)) > 1e-4)) {
+    fail("the qform offset must hold the reference dimensions")
+  }
+  if (any(!is.finite(ref_voxel) | ref_voxel <= 0)) fail("intent_p1..3 must hold the reference voxel size")
+  affine <- diag(4)
+  if (h$sform_code > 0L) affine[1:3, ] <- rbind(h$srow_x, h$srow_y, h$srow_z)
+  # FSL itself refuses to read files whose --aff matrix reflects.
+  if (!all(is.finite(affine)) || det(affine[1:3, 1:3]) <= 0) fail("the stored FLIRT matrix must have positive determinant")
 
-  raw <- as.array(vol)
-  nvox <- prod(dim4[1:3])
-  arr <- numeric(3 * nvox)
-  idx <- seq_len(nvox)
-  arr[3L * (idx - 1L) + 1L] <- as.numeric(raw[, , , 1])  # X coefficients
-  arr[3L * (idx - 1L) + 2L] <- as.numeric(raw[, , , 2])  # Y coefficients
-  arr[3L * (idx - 1L) + 3L] <- as.numeric(raw[, , , 3])  # Z coefficients
-
-  vox_to_world <- neuroim2::trans(vol)
-  inv_aff <- solve(vox_to_world)
+  coef <- RNifti::readNifti(path, internal = FALSE)
   list(
-    array = arr,
-    dim = as.integer(dim4[1:3]),
-    world_to_vox = inv_aff,
-    vox_to_world = vox_to_world,
-    mode = "bspline_coefficients"
+    coef = array(as.numeric(coef), dim = dim(coef)),
+    knot = as.integer(round(knot)),
+    order = if (h$intent_code == 2007L) 3L else 2L,
+    ref_dim = as.integer(round(ref_dim)),
+    ref_voxel = ref_voxel,
+    affine = affine,
+    mode = "fsl_spline_coefficients"
   )
 }
 
@@ -280,7 +292,9 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
 
   # Resolve loader based on warp_type
   if (is.null(loader)) {
-    if (identical(morphism@warp_type, "fsl") && .looks_like_coef_warp(morphism@warp_path)) {
+    if (identical(morphism@warp_type, "fsl") &&
+        (.looks_like_coef_warp(morphism@warp_path) ||
+         isTRUE((.nifti_vector_layout(morphism@warp_path)$intent %||% 0L) %in% 2007:2009))) {
       stop("Warp looks like an FNIRT coefficient field. Use warp_type='fsl_coef' (or read_transform(..., type='fsl_coef')).")
     }
     default_loader_name <- switch(
@@ -305,14 +319,21 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
 
   cache_env <- cache_env %||% morphism@cache %||% new_cache_env()
   # FSL source/reference geometry changes the decoded values for the same file.
-  key <- if (identical(morphism@warp_type, "fsl")) {
+  fsl <- morphism@warp_type %in% c("fsl", "fsl_coef")
+  key <- if (fsl) {
     paste0(morphism@warp_path, "::", morphism_hash(morphism))
   } else morphism@warp_path
   if (exists(key, envir = cache_env, inherits = FALSE)) {
     return(get(key, envir = cache_env, inherits = FALSE))
   }
   value <- loader(morphism@warp_path)
-  if (identical(morphism@warp_type, "fsl")) {
+  if (identical(morphism@warp_type, "fsl_coef")) {
+    # Coefficients decode to the relative dense field on the reference grid,
+    # which then shares the dense FSL path.
+    params <- morphism@params
+    params$def_type <- "relative"
+    value <- .fsl_dense_to_ras_displacement(.fsl_coef_to_dense(value, params), params)
+  } else if (identical(morphism@warp_type, "fsl")) {
     value <- .fsl_dense_to_ras_displacement(value, morphism@params)
   }
 
