@@ -22,6 +22,25 @@ NULL
   grepl("coef|coeff|warpcoef|fieldcoef", lower)
 }
 
+# The dense FSL reader must not decode coefficient files. A definitive header
+# intent decides (2006 dense, 2007-2009 coefficients); the filename is used only
+# when the intent is unknown.
+.fsl_reject_coefficient_file <- function(path) {
+  intent <- .nifti_vector_layout(path)$intent %||% 0L
+  coefficients <- if (intent == 2006L) {
+    FALSE
+  } else if (intent %in% 2007:2009) {
+    TRUE
+  } else {
+    .looks_like_coef_warp(path)
+  }
+  if (coefficients) {
+    stop("Warp looks like an FNIRT coefficient field. Use warp_type='fsl_coef' ",
+         "(or read_transform(..., type='fsl_coef')).", call. = FALSE)
+  }
+  invisible(NULL)
+}
+
 #' Default neuroim2 warp loader
 #'
 #' Loads a NIfTI displacement field using neuroim2 (DenseNeuroVec).
@@ -291,12 +310,8 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
   }
 
   # Resolve loader based on warp_type
-  if (is.null(loader)) {
-    if (identical(morphism@warp_type, "fsl") &&
-        (.looks_like_coef_warp(morphism@warp_path) ||
-         isTRUE((.nifti_vector_layout(morphism@warp_path)$intent %||% 0L) %in% 2007:2009))) {
-      stop("Warp looks like an FNIRT coefficient field. Use warp_type='fsl_coef' (or read_transform(..., type='fsl_coef')).")
-    }
+  default_loader <- is.null(loader)
+  if (default_loader) {
     default_loader_name <- switch(
       morphism@warp_type,
       "ants_h5" = "ants_h5",
@@ -325,6 +340,9 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
   } else morphism@warp_path
   if (exists(key, envir = cache_env, inherits = FALSE)) {
     return(get(key, envir = cache_env, inherits = FALSE))
+  }
+  if (default_loader && identical(morphism@warp_type, "fsl")) {
+    .fsl_reject_coefficient_file(morphism@warp_path)
   }
   value <- loader(morphism@warp_path)
   if (identical(morphism@warp_type, "fsl_coef")) {

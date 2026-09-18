@@ -226,6 +226,10 @@ Warp3DMorphism <- function(source, target, warp_path,
   if (!is.character(source) || length(source) != 1L) stop("source must be a single character")
   if (!is.character(target) || length(target) != 1L) stop("target must be a single character")
   if (!nzchar(warp_path)) stop("warp_path must be provided")
+  if (identical(warp_type, "fsl_coef") && !identical(def_type, "relative")) {
+    stop("FNIRT coefficient files encode relative displacements; def_type must be 'relative'.",
+         call. = FALSE)
+  }
   if (warp_type %in% c("fsl", "fsl_coef")) {
     # Fail at construction rather than at first use: the field cannot be
     # interpreted without the source image geometry, and coefficient files do
@@ -746,10 +750,19 @@ setMethod("invert", "Warp3DMorphism", function(object) {
     target_dim <- as.integer(dim(header)[1:3])
   }
   warp_type <- object@warp_type
-  if (identical(warp_type, "fsl_coef")) {
-    # invwarp writes dense fields even when the forward warp is a coefficient file.
+  def_type <- object@params$def_type %||% "relative"
+  if (warp_type %in% c("fsl", "fsl_coef")) {
+    # The inverse file determines its own format: invwarp writes dense relative
+    # fields even for coefficient warps, and an FNIRT run in the reverse
+    # direction writes coefficients. Coefficient files are always relative.
     intent <- .nifti_vector_layout(object@inverse_path)$intent %||% 0L
-    if (!intent %in% 2007:2009) warp_type <- "fsl"
+    if (intent %in% 2007:2009) {
+      warp_type <- "fsl_coef"
+      def_type <- "relative"
+    } else {
+      if (identical(warp_type, "fsl_coef")) def_type <- "relative"
+      warp_type <- "fsl"
+    }
   }
   Warp3DMorphism(
     source = target_of(object),
@@ -757,7 +770,7 @@ setMethod("invert", "Warp3DMorphism", function(object) {
     warp_path = object@inverse_path,
     inverse_path = object@warp_path,
     warp_type = warp_type,
-    def_type = object@params$def_type %||% "relative",
+    def_type = def_type,
     warp_method = object@params$warp_method %||% "linear",
     source_affine = target_affine, source_dim = target_dim,
     target_affine = object@params$source_affine, target_dim = object@params$source_dim,

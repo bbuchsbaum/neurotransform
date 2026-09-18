@@ -191,7 +191,9 @@ fsl_fsl_to_world <- function(affine, dim = NULL) {
 
   w <- lapply(1:3, function(a) .fsl_spline_weights(ref_dim[a], n_coef[a], coef$knot[a], coef$order))
   d <- vapply(1:3, function(m) {
-    as.numeric(.fsl_spline_evaluate(coef$coef[, , , m], w[[1]], w[[2]], w[[3]]))
+    # Keep size-1 coefficient axes (single-slice references with knot spacing 1).
+    component <- array(coef$coef[, , , m, drop = FALSE], n_coef)
+    as.numeric(.fsl_spline_evaluate(component, w[[1]], w[[2]], w[[3]]))
   }, numeric(prod(ref_dim)))
   if (det(ref_affine[1:3, 1:3]) > 0) {
     # Knots run over FSL's x-flipped index; reorder to stored voxel order.
@@ -287,54 +289,90 @@ fsl_load_flirt_morphism <- function(source, target, mat_path,
 #' Detect FNIRT deformation type (relative vs absolute)
 #'
 #' Determines whether a dense FSL warp stores relative displacements or
-#' absolute source coordinates. Field values are fitted as a linear function of
-#' the reference FSL coordinates, \eqn{v \approx M x + t}. Read as absolute,
-#' the implied Jacobian of the reference-to-source mapping is \eqn{M}; read as
-#' relative, it is \eqn{M + I}. The representation whose Jacobian determinant is
-#' closer to volume-preserving is returned. Unlike a displacement-magnitude
-#' threshold, this is unaffected by large translations between the image
-#' frames, and the wrong reading of a registration is strongly penalized
-#' (\eqn{R - I} is singular for any rotation \eqn{R}).
+#' absolute source coordinates, using two kinds of evidence on a regular
+#' subsample of non-zero lattice vectors:
+#' \enumerate{
+#'   \item Field of view (when \code{source_affine} and \code{source_dim} are
+#'     given): the reading whose implied source FSL coordinates fall inside the
+#'     source image (within one voxel) for a clearly larger fraction of samples
+#'     (by at least 0.25) wins.
+#'   \item Jacobian: field values are fitted as \eqn{v \approx M x + t} in
+#'     reference FSL coordinates, so the implied reference-to-source Jacobian is
+#'     \eqn{M} (absolute) or \eqn{M + I} (relative). A reading wins when the
+#'     other implies a volume change at least twice as extreme
+#'     (\eqn{|\log|\det J||} larger by \eqn{\log 2}).
+#' }
+#' The field-of-view test decides first. If neither is decisive the function
+#' stops rather than guess; pass \code{def_type} explicitly in that case.
+#' Scaled or axis-permuted mappings (e.g. a small or sagittally stored source)
+#' can make the Jacobian test ambiguous, which the field-of-view test resolves.
 #'
 #' @param warp_path Path to FNIRT warp file
-#' @param sample_n Approximate number of lattice points used for the fit
+#' @param sample_n Approximate number of lattice points sampled
 #' @param threshold_mm Deprecated and ignored; retained for compatibility.
+#' @param source_affine,source_dim Optional source image voxel-to-RAS affine
+#'   and dimensions, enabling the field-of-view test.
 #' @return "relative" or "absolute"
 #' @export
 #' @examples
 #' \dontrun{
-#' def_type <- detect_fnirt_def_type("warp.nii.gz")
+#' def_type <- detect_fnirt_def_type("warp.nii.gz", source_affine = src_affine,
+#'                                   source_dim = src_dim)
 #' }
-detect_fnirt_def_type <- function(warp_path, sample_n = 1000, threshold_mm = NULL) {
+detect_fnirt_def_type <- function(warp_path, sample_n = 1000, threshold_mm = NULL,
+                                  source_affine = NULL, source_dim = NULL) {
   if (!requireNamespace("neuroim2", quietly = TRUE)) {
     stop("neuroim2 required for FNIRT detection")
   }
   if (!file.exists(warp_path)) stop("Warp file not found: ", warp_path)
+  use_fov <- !is.null(source_affine) || !is.null(source_dim)
+  if (use_fov) .fsl_check_geometry(source_affine, source_dim, "source")
 
   img <- neuroim2::read_vec(warp_path)
   dim4 <- dim(img)
   if (length(dim4) < 4 || dim4[4] < 3) stop("Warp must be 4D with last dim length 3")
   dims <- as.integer(dim4[1:3])
-  if (any(dims < 2L)) return("relative")
 
-  # Regular subgrid of the lattice, 0-based, for a well-conditioned fit.
+  # Regular subgrid of the lattice, 0-based.
   per_axis <- max(2L, ceiling(sample_n^(1 / 3)))
   axes <- lapply(dims, function(n) unique(round(seq(0, n - 1, length.out = min(n, per_axis)))))
   vox <- as.matrix(expand.grid(axes))
   arr <- as.array(img)
   vals <- sapply(1:3, function(k) arr[cbind(vox + 1L, k)])
+  vals <- matrix(vals, ncol = 3)
   keep <- rowSums(is.finite(vals)) == 3L & rowSums(vals != 0) > 0L
   # An all-zero field is the relative identity.
-  if (sum(keep) < 12L) return("relative")
-
+  if (!any(keep)) return("relative")
   ref_fsl <- (cbind(vox, 1) %*% t(fsl_vox_to_fsl(neuroim2::trans(img), dims)))[, 1:3, drop = FALSE]
-  coef <- tryCatch(qr.solve(cbind(ref_fsl[keep, , drop = FALSE], 1), vals[keep, , drop = FALSE]),
-                   error = function(e) NULL)
-  if (is.null(coef)) return("relative")
-  M <- t(coef[1:3, , drop = FALSE])
-  distortion <- function(J) {
-    d <- abs(det(J))
-    if (!is.finite(d) || d <= 0) Inf else abs(log(d))
+  vals <- vals[keep, , drop = FALSE]
+  ref_fsl <- ref_fsl[keep, , drop = FALSE]
+
+  if (use_fov) {
+    spacing <- fsl_spacing_from_affine(source_affine)[1:3]
+    upper <- (as.integer(source_dim) - 1) * spacing + spacing
+    inside <- function(p) {
+      mean(rowSums(sweep(p, 2, -spacing, ">=") & sweep(p, 2, upper, "<=")) == 3L)
+    }
+    fov <- c(absolute = inside(vals), relative = inside(vals + ref_fsl))
+    if (abs(fov[["absolute"]] - fov[["relative"]]) >= 0.25) return(names(which.max(fov)))
   }
-  if (distortion(M) < distortion(M + diag(3))) "absolute" else "relative"
+
+  if (all(dims >= 2L) && nrow(vals) >= 12L) {
+    coef <- tryCatch(qr.solve(cbind(ref_fsl, 1), vals), error = function(e) NULL)
+    if (!is.null(coef)) {
+      M <- t(coef[1:3, , drop = FALSE])
+      distortion <- function(J) {
+        d <- abs(det(J))
+        if (!is.finite(d) || d <= 0) Inf else abs(log(d))
+      }
+      jac <- c(absolute = distortion(M), relative = distortion(M + diag(3)))
+      if (isTRUE(abs(jac[["absolute"]] - jac[["relative"]]) >= log(2))) {
+        return(names(which.min(jac)))
+      }
+    }
+  }
+  stop("Cannot determine whether ", basename(warp_path), " stores relative displacements ",
+       "or absolute coordinates",
+       if (!use_fov) " (source_affine and source_dim enable a field-of-view test)",
+       "; pass def_type explicitly.", call. = FALSE)
 }

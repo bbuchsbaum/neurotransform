@@ -130,8 +130,9 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
 
 # Header-only description of a NIfTI vector field, or NULL if unreadable.
 .nifti_vector_layout <- function(path) {
-  if (!requireNamespace("RNifti", quietly = TRUE)) return(NULL)
-  h <- tryCatch(RNifti::niftiHeader(path), error = function(e) NULL)
+  if (!requireNamespace("RNifti", quietly = TRUE) || !file.exists(path)) return(NULL)
+  # RNifti reports unreadable headers through a warning as well as an error.
+  h <- tryCatch(suppressWarnings(RNifti::niftiHeader(path)), error = function(e) NULL)
   if (is.null(h)) return(NULL)
   nd <- as.integer(h$dim[1])
   d <- as.integer(h$dim[seq_len(nd) + 1L])
@@ -180,12 +181,14 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
 #' @param source Optional source id
 #' @param target Optional target id
 #' @param apply_affine Logical; for ANTs H5 files, whether to include embedded affine
-#' @param ... Additional constructor arguments. Dense FSL fields require
-#'   \code{source_affine} and \code{source_dim}; optionally supply
+#' @param ... Additional constructor arguments. FSL warps require
+#'   \code{source_affine} and \code{source_dim}. For dense FSL fields, supply
 #'   \code{target_affine} and \code{target_dim} if the reference image grid
-#'   differs from the warp lattice. \code{def_type} specifies relative FSL
-#'   offsets or absolute FSL coordinates; \code{warp_method} controls field
-#'   interpolation. See \code{Warp3DMorphism}.
+#'   differs from the warp lattice; FNIRT coefficient files (\code{fsl_coef})
+#'   always require them. \code{def_type} specifies relative FSL offsets or
+#'   absolute FSL coordinates (inferred from the field when omitted);
+#'   \code{warp_method} controls field interpolation. See
+#'   \code{Warp3DMorphism}.
 #' @return A Morphism or MorphismPath object
 #' @rdname read_transform
 #' @export
@@ -269,10 +272,10 @@ read_transform <- function(path, type = NULL, source = NULL, target = NULL, appl
            call. = FALSE)
     }
     if (isTRUE(inferred_type) && identical(type, "fsl") && is.null(def_type)) {
-      def_type <- tryCatch(
-        detect_fnirt_def_type(path),
-        error = function(e) "relative"
-      )
+      # Errors (ambiguous fields) propagate: guessing would silently misplace
+      # every coordinate.
+      def_type <- detect_fnirt_def_type(path, source_affine = extra$source_affine,
+                                        source_dim = extra$source_dim)
     }
     return(Warp3DMorphism(
       source %||% "source",

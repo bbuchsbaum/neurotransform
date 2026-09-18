@@ -4,31 +4,50 @@
 \alias{detect_fnirt_def_type}
 \title{Detect FNIRT deformation type (relative vs absolute)}
 \usage{
-detect_fnirt_def_type(warp_path, sample_n = 1000, threshold_mm = NULL)
+detect_fnirt_def_type(
+  warp_path,
+  sample_n = 1000,
+  threshold_mm = NULL,
+  source_affine = NULL,
+  source_dim = NULL
+)
 }
 \arguments{
 \item{warp_path}{Path to FNIRT warp file}
 
-\item{sample_n}{Approximate number of lattice points used for the fit}
+\item{sample_n}{Approximate number of lattice points sampled}
 
 \item{threshold_mm}{Deprecated and ignored; retained for compatibility.}
+
+\item{source_affine, source_dim}{Optional source image voxel-to-RAS affine
+and dimensions, enabling the field-of-view test.}
 }
 \value{
 "relative" or "absolute"
 }
 \description{
 Determines whether a dense FSL warp stores relative displacements or
-absolute source coordinates. Field values are fitted as a linear function of
-the reference FSL coordinates, \eqn{v \approx M x + t}. Read as absolute,
-the implied Jacobian of the reference-to-source mapping is \eqn{M}; read as
-relative, it is \eqn{M + I}. The representation whose Jacobian determinant is
-closer to volume-preserving is returned. Unlike a displacement-magnitude
-threshold, this is unaffected by large translations between the image
-frames, and the wrong reading of a registration is strongly penalized
-(\eqn{R - I} is singular for any rotation \eqn{R}).
+absolute source coordinates, using two kinds of evidence on a regular
+subsample of non-zero lattice vectors:
+\enumerate{
+\item Field of view (when \code{source_affine} and \code{source_dim} are
+given): the reading whose implied source FSL coordinates fall inside the
+source image (within one voxel) for a clearly larger fraction of samples
+(by at least 0.25) wins.
+\item Jacobian: field values are fitted as \eqn{v \approx M x + t} in
+reference FSL coordinates, so the implied reference-to-source Jacobian is
+\eqn{M} (absolute) or \eqn{M + I} (relative). A reading wins when the
+other implies a volume change at least twice as extreme
+(\eqn{|\log|\det J||} larger by \eqn{\log 2}).
+}
+The field-of-view test decides first. If neither is decisive the function
+stops rather than guess; pass \code{def_type} explicitly in that case.
+Scaled or axis-permuted mappings (e.g. a small or sagittally stored source)
+can make the Jacobian test ambiguous, which the field-of-view test resolves.
 }
 \examples{
 \dontrun{
-def_type <- detect_fnirt_def_type("warp.nii.gz")
+def_type <- detect_fnirt_def_type("warp.nii.gz", source_affine = src_affine,
+                                  source_dim = src_dim)
 }
 }

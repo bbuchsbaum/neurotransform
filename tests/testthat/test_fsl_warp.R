@@ -53,30 +53,53 @@ test_that("detect_fnirt_def_type works on synthetic relative warp",
   unlink(tmp)
 })
 
-test_that("detect_fnirt_def_type works on synthetic absolute warp", {
-  skip_if_not_installed("neuroim2")
+# Synthetic dense FSL fields on a left-handed 2 mm reference. The mapping to
+# source FSL coordinates is L %*% ref_fsl + t; the source image is a
+# left-handed 1 mm grid (FSL coordinates = voxel indices) that contains it.
+synthetic_fsl_field <- function(L, absolute) {
+  dims <- c(20L, 24L, 20L)
+  ref_aff <- diag(c(-2, 2, 2, 1))
+  ref_aff[1:3, 4] <- c(38, -46, -38)
+  vox <- as.matrix(expand.grid(lapply(dims, function(n) 0:(n - 1))))
+  ref_fsl <- (cbind(vox, 1) %*% t(fsl_vox_to_fsl(ref_aff, dims)))[, 1:3]
+  lin <- ref_fsl %*% t(L)
+  src <- sweep(lin, 2, 5 - apply(lin, 2, min), "+")
+  img <- RNifti::asNifti(array(if (absolute) src else src - ref_fsl, c(dims, 3L)))
+  RNifti::sform(img) <- structure(ref_aff, code = 1L)
+  RNifti::qform(img) <- structure(ref_aff, code = 1L)
+  path <- tempfile(fileext = ".nii.gz")
+  RNifti::writeNifti(img, path, datatype = "float")
+  list(path = path, source_affine = diag(c(-1, 1, 1, 1)),
+       source_dim = as.integer(ceiling(apply(src, 2, max) + 5)) + 1L)
+}
 
-  # Create a synthetic absolute coordinate field (large values = world coords)
-  dimf <- c(10, 10, 10, 3)
-  # Create coordinate values that look like world coordinates
-  arr <- array(0, dim = dimf)
-  for (i in 1:dimf[1]) {
-    for (j in 1:dimf[2]) {
-      for (k in 1:dimf[3]) {
-        arr[i, j, k, 1] <- i * 2  # X coord scaled by voxel size
-        arr[i, j, k, 2] <- j * 2  # Y coord
-        arr[i, j, k, 3] <- k * 2  # Z coord
-      }
-    }
+test_that("detect_fnirt_def_type identifies FSL absolute and relative fields", {
+  skip_if_not_installed("RNifti")
+  cyc <- matrix(c(0, 1, 0, 0, 0, 1, 1, 0, 0), 3, byrow = TRUE)
+  rz90 <- matrix(c(0, -1, 0, 1, 0, 0, 0, 0, 1), 3, byrow = TRUE)
+  cases <- list(
+    list(diag(3), TRUE), list(diag(3), FALSE),
+    # Scaled or axis-permuted mappings (small or sagittally stored sources)
+    # leave the Jacobian test ambiguous; the field-of-view test decides.
+    list(0.85 * cyc, TRUE), list(0.7 * rz90, TRUE), list(0.6 * diag(3), TRUE),
+    list(0.75 * cyc, FALSE), list(0.7 * rz90, FALSE), list(1.3 * diag(3), FALSE)
+  )
+  for (case in cases) {
+    f <- synthetic_fsl_field(case[[1]], case[[2]])
+    expected <- if (case[[2]]) "absolute" else "relative"
+    expect_equal(detect_fnirt_def_type(f$path, source_affine = f$source_affine,
+                                       source_dim = f$source_dim), expected)
+    m <- read_transform(f$path, source_affine = f$source_affine, source_dim = f$source_dim)
+    expect_equal(m@params$def_type, expected)
   }
+})
 
-  tmp <- tempfile(fileext = ".nii.gz")
-  space <- neuroim2::NeuroSpace(dimf, trans = diag(c(2, 2, 2, 1)))  # 2mm voxels
-  neuroim2::write_vec(neuroim2::DenseNeuroVec(arr, space), tmp, format = "nifti")
-
-  def_type <- detect_fnirt_def_type(tmp, sample_n = 100, threshold_mm = 50)
-  expect_equal(def_type, "absolute")
-  unlink(tmp)
+test_that("detect_fnirt_def_type refuses to guess ambiguous fields", {
+  skip_if_not_installed("RNifti")
+  cyc <- matrix(c(0, 1, 0, 0, 0, 1, 1, 0, 0), 3, byrow = TRUE)
+  f <- synthetic_fsl_field(0.85 * cyc, TRUE)
+  expect_error(detect_fnirt_def_type(f$path), "pass def_type explicitly")
+  expect_equal(detect_fnirt_def_type(synthetic_fsl_field(diag(3), TRUE)$path), "absolute")
 })
 
 test_that("FSL synthetic warp transform produces finite results", {

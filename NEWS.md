@@ -57,10 +57,14 @@
   `(X, Y, Z, 3)` field is FSL's layout. Real FSL fields were previously
   auto-detected as ANTs and silently misread. An inferred FSL field without
   source geometry now errors with a message naming the fix.
-- `detect_fnirt_def_type()` now decides from the linear part of the field
-  (volume-preserving Jacobian test) instead of a displacement-magnitude
-  threshold, which classified real FNIRT relative fields containing a FLIRT
-  affine as absolute. `threshold_mm` is deprecated and ignored.
+- `detect_fnirt_def_type()` no longer uses a displacement-magnitude threshold,
+  which classified real FNIRT relative fields containing a FLIRT affine as
+  absolute. Given `source_affine`/`source_dim` it picks the reading whose
+  implied source coordinates fall inside the source image, then falls back to
+  a volume-preserving Jacobian test; when neither is decisive it stops instead
+  of guessing. `read_transform()` passes the source geometry and no longer
+  defaults ambiguous fields to relative. `threshold_mm` is deprecated and
+  ignored.
 - `invert()` on a dense FSL warp reads only the forward field header to obtain
   the default reference geometry.
 - FNIRT spline-coefficient files (`fnirt --cout`, `warp_type = "fsl_coef"`) are
@@ -79,3 +83,12 @@
 - Added native FSL 5.0.9 coefficient fixtures (`inst/extdata/fsl_coef_oracle`)
   for every handedness pair with and without `--aff`, and a script to generate
   real FLIRT/FNIRT validation data locally (`inst/extdata/fsl/register_to_mni.sh`).
+- `invert()` on FSL warps takes the inverse's format from the inverse file's
+  header, so coefficient and dense inverses round-trip. Coefficient warps
+  reject `def_type = "absolute"`.
+- The dense FSL reader trusts a header intent of 2006 over a filename that
+  mentions coefficients, and checks the header only on a cache miss.
+- Single-slice FNIRT coefficient files no longer fail to decode.
+- Custom loaders registered for `"fsl_coef"` must now return the raw
+  coefficient list of `load_warp_fsl_coef()` (coefficients, knot spacing,
+  spline order, reference dimensions and voxel size, and the FLIRT matrix).
