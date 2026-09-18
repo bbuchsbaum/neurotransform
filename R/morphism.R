@@ -193,6 +193,12 @@ Affine3DMorphism <- function(source, target, matrix, cost = 1.0, method_tag = "a
 #' @param inverse_path Path to inverse warp (optional)
 #' @param def_type Deformation type: "relative" (displacement) or "absolute" (coordinates)
 #' @param warp_method Interpolation method for warp field lookup: "linear" or "cubic"
+#' @param source_affine,source_dim Source image voxel-to-RAS affine and three
+#'   dimensions. Required when evaluating dense FSL fields: their values use
+#'   source scaled-voxel coordinates, which cannot be recovered from the warp.
+#' @param target_affine,target_dim Reference image voxel-to-RAS affine and three
+#'   dimensions for dense FSL fields. If both are omitted, use the warp lattice.
+#'   Supply both when the field lattice differs from the reference image grid.
 #' @param cost Path cost (default 1.5)
 #' @param method_tag Method tag (default "anatomical")
 #' @return Warp3DMorphism object
@@ -203,7 +209,9 @@ Warp3DMorphism <- function(source, target, warp_path,
                            warp_type = c("ants", "ants_h5", "fsl", "fsl_coef", "afni", "freesurfer", "dense"),
                            inverse_path = "", def_type = NULL,
                            warp_method = c("linear", "cubic"),
-                           cost = 1.5, method_tag = "anatomical") {
+                           cost = 1.5, method_tag = "anatomical",
+                           source_affine = NULL, source_dim = NULL,
+                           target_affine = NULL, target_dim = NULL) {
   warp_type <- match.arg(warp_type)
   if (is.null(def_type)) {
     # ANTs H5 and other displacement fields store relative offsets (not absolute coords).
@@ -236,7 +244,9 @@ Warp3DMorphism <- function(source, target, warp_path,
            target = target,
            kind = "warp3d",
            params = list(warp_path = warp_path, warp_type = warp_type,
-                         def_type = def_type, warp_method = warp_method),
+                         def_type = def_type, warp_method = warp_method,
+                         source_affine = source_affine, source_dim = source_dim,
+                         target_affine = target_affine, target_dim = target_dim),
            inverse_params = list(inverse_path = inverse_path),
            coverage = 1.0,
            cost = cost,
@@ -244,6 +254,7 @@ Warp3DMorphism <- function(source, target, warp_path,
            warp_path = warp_path,
            warp_type = warp_type,
            inverse_path = inverse_path,
+           cache = new_cache_env(),
            hash = "",
            inverse_type = inv_type,
            inverse_quality = inv_quality,
@@ -709,6 +720,14 @@ setMethod("invert", "Warp3DMorphism", function(object) {
   if (!nzchar(object@inverse_path)) {
     stop("Warp3DMorphism has no inverse_path; cannot invert")
   }
+  target_affine <- object@params$target_affine
+  target_dim <- object@params$target_dim
+  if (identical(object@warp_type, "fsl") && is.null(target_affine) && is.null(target_dim)) {
+    # The forward field lattice supplies the default reference geometry.
+    field <- load_warp_neuroim2(object@warp_path)
+    target_affine <- field$vox_to_world
+    target_dim <- field$dim
+  }
   Warp3DMorphism(
     source = target_of(object),
     target = source_of(object),
@@ -717,6 +736,8 @@ setMethod("invert", "Warp3DMorphism", function(object) {
     warp_type = object@warp_type,
     def_type = object@params$def_type %||% "relative",
     warp_method = object@params$warp_method %||% "linear",
+    source_affine = target_affine, source_dim = target_dim,
+    target_affine = object@params$source_affine, target_dim = object@params$source_dim,
     cost = object@cost,
     method_tag = object@method_tag
   )

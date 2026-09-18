@@ -37,7 +37,7 @@ test_that("load_warp_array works on sample ANTs and FSL warps", {
   fsl_path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
 
   ants <- load_warp_array(Warp3DMorphism("src", "tgt", ants_path, warp_type = "ants"))
-  fsl <- load_warp_array(Warp3DMorphism("src", "tgt", fsl_path, warp_type = "fsl"))
+  fsl <- load_warp_array(Warp3DMorphism("src", "tgt", fsl_path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L)))
 
   expect_equal(ants$dim, c(3L, 3L, 3L))
   expect_equal(fsl$dim, c(3L, 3L, 3L))

@@ -13,7 +13,11 @@ Warp3DMorphism(
   def_type = NULL,
   warp_method = c("linear", "cubic"),
   cost = 1.5,
-  method_tag = "anatomical"
+  method_tag = "anatomical",
+  source_affine = NULL,
+  source_dim = NULL,
+  target_affine = NULL,
+  target_dim = NULL
 )
 }
 \arguments{
@@ -34,6 +38,14 @@ Warp3DMorphism(
 \item{cost}{Path cost (default 1.5)}
 
 \item{method_tag}{Method tag (default "anatomical")}
+
+\item{source_affine, source_dim}{Source image voxel-to-RAS affine and three
+dimensions. Required when evaluating dense FSL fields: their values use
+source scaled-voxel coordinates, which cannot be recovered from the warp.}
+
+\item{target_affine, target_dim}{Reference image voxel-to-RAS affine and three
+dimensions for dense FSL fields. If both are omitted, use the warp lattice.
+Supply both when the field lattice differs from the reference image grid.}
 }
 \value{
 Warp3DMorphism object

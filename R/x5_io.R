@@ -207,7 +207,7 @@ read_x5 <- function(path) {
   if (inherits(x, "Warp3DMorphism")) {
     w <- load_warp_array(x)
     field <- .unflatten_warp_components(w$array, w$dim)
-    repr <- if (identical(x@params$def_type %||% "relative", "absolute")) "deformations" else "displacements"
+    repr <- if (identical(w$def_type %||% x@params$def_type %||% "relative", "absolute")) "deformations" else "displacements"
     dom <- x5_domain(
       grid = TRUE,
       size = as.integer(w$dim),

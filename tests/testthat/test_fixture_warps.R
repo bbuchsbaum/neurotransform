@@ -1,6 +1,6 @@
 test_that("fixture warps load and carry expected gradients", {
   path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
-  morph <- Warp3DMorphism("a", "b", path, warp_type = "fsl")
+  morph <- Warp3DMorphism("a", "b", path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
   warp <- load_warp_array(morph)
 
   expect_equal(warp$dim, c(3L, 3L, 3L))
@@ -8,12 +8,12 @@ test_that("fixture warps load and carry expected gradients", {
 
   arr <- array(warp$array, dim = c(3L, warp$dim))
   center <- arr[, 2, 2, 2]
-  expect_equal(center, c(0.5, -0.25, 0.1), tolerance = 1e-6)
+  expect_equal(center, c(-0.5, -0.25, 0.1), tolerance = 1e-6)
 })
 
 test_that("warp transform plugs into resample pipeline", {
   path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
-  morph <- Warp3DMorphism("src", "tgt", path, warp_type = "fsl")
+  morph <- Warp3DMorphism("src", "tgt", path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
 
   vol <- array(0, dim = c(3, 3, 3))
   for (x in 0:2) for (y in 0:2) for (z in 0:2) {

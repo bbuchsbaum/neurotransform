@@ -32,6 +32,58 @@ test_that("fsl_flirt_to_internal_affine matches known conversion", {
   expect_equal(internal[1, 4], 1, tolerance = 1e-8)
 })
 
+test_that("FLIRT conversion matches the scaled-voxel point equation", {
+  source_affine <- diag(4)
+  source_affine[1:3, 1:3] <- diag(c(2, 3, 4))
+  source_affine[1:3, 4] <- c(10, -20, 5)
+  target_affine <- diag(4)
+  target_affine[1:3, 1:3] <- diag(c(-1.5, 2.5, 3.5))
+  target_affine[1:3, 4] <- c(30, 40, -10)
+  source_dim <- c(7L, 8L, 9L)
+  target_dim <- c(10L, 11L, 12L)
+  flirt <- diag(4)
+  flirt[1:3, 1:3] <- matrix(c(
+    1.0, 0.1, 0.0,
+    0.0, 1.0, 0.2,
+    0.0, 0.0, 0.9
+  ), 3, byrow = TRUE)
+  flirt[1:3, 4] <- c(5, -3, 2)
+
+  # Independent statement of FSL's convention: scaled voxel coordinates, with
+  # an x swap only for a right-handed voxel-to-world matrix.
+  scaled_vox <- function(affine, dims) {
+    spacing <- sqrt(colSums(affine[1:3, 1:3, drop = FALSE]^2))
+    out <- diag(c(spacing, 1))
+    if (det(affine[1:3, 1:3]) > 0) {
+      swap <- diag(4)
+      swap[1, 1] <- -1
+      swap[1, 4] <- (dims[1] - 1) * spacing[1]
+      out <- swap %*% out
+    }
+    out
+  }
+  src_vox_to_fsl <- scaled_vox(source_affine, source_dim)
+  tgt_vox_to_fsl <- scaled_vox(target_affine, target_dim)
+  expected <- source_affine %*% solve(src_vox_to_fsl) %*%
+    solve(flirt) %*% tgt_vox_to_fsl %*% solve(target_affine)
+
+  actual <- fsl_flirt_to_internal_affine(
+    flirt, source_affine, target_affine,
+    source_dim = source_dim, ref_dim = target_dim
+  )
+  target_points <- rbind(c(30, 40, -10), c(15, 52, 4))
+  apply_affine <- function(mat, points) {
+    (cbind(points, 1) %*% t(mat))[, 1:3, drop = FALSE]
+  }
+
+  expect_equal(actual, expected, tolerance = 1e-10)
+  expect_equal(
+    apply_affine(actual, target_points),
+    apply_affine(expected, target_points),
+    tolerance = 1e-10
+  )
+})
+
 test_that("fsl_vox_to_fsl errors for right-handed affine without dims", {
   expect_error(
     fsl_vox_to_fsl(diag(4)),

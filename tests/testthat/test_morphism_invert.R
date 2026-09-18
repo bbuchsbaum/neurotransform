@@ -138,6 +138,8 @@ test_that("invert(Warp3DMorphism) preserves method_tag", {
 
 test_that("invert(Warp3DMorphism) preserves warp_type", {
   w <- Warp3DMorphism("a", "b", "fwd.nii", warp_type = "fsl",
+                      source_affine = diag(4), source_dim = c(3,3,3),
+                      target_affine = diag(4), target_dim = c(3,3,3),
                       inverse_path = "inv.nii")
   inv <- invert(w)
 

@@ -19,7 +19,7 @@ test_that("resampling plan matches resample_volume output", {
 
 test_that("resampling plan caches and handles 4D volumes", {
   warp_path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
-  morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "fsl")
+  morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
 
   src_grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4))
   tgt_grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4))
@@ -47,7 +47,7 @@ test_that("flattened resampling plan matches direct resample for affine-warp-aff
   path <- compose(
     compose(
       Affine3DMorphism("src", "mid1", aff1),
-      Warp3DMorphism("mid1", "mid2", warp_path, warp_type = "fsl")
+      Warp3DMorphism("mid1", "mid2", warp_path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
     ),
     Affine3DMorphism("mid2", "tgt", aff2)
   )
@@ -74,7 +74,7 @@ test_that("flattened resampling plan matches direct resample for affine-warp-aff
 
 test_that("reuse_count leaves resampling output invariant", {
   warp_path <- system.file("extdata/fsl/S01_warp.nii.gz", package = "neurotransform")
-  morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "fsl")
+  morph <- Warp3DMorphism("src", "tgt", warp_path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
 
   src_grid <- grid_spec(dims = c(4L, 4L, 4L), affine = diag(4))
   tgt_affine <- diag(4)
@@ -126,7 +126,7 @@ test_that("resampling plan cache key changes when warp file mtime changes", {
   expect_true(file.copy(src_warp, tmp_warp, overwrite = TRUE))
   on.exit(unlink(tmp_warp), add = TRUE)
 
-  morph <- Warp3DMorphism("src", "tgt", tmp_warp, warp_type = "fsl")
+  morph <- Warp3DMorphism("src", "tgt", tmp_warp, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
   src_grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4))
   tgt_grid <- grid_spec(dims = c(3L, 3L, 3L), affine = diag(4))
 

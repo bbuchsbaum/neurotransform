@@ -163,7 +163,7 @@ test_that("apply_warp_chain preserves pullback order for affine-warp-affine path
   aff_post[2, 4] <- 0.2
 
   f <- Affine3DMorphism("src", "mid1", aff_pre)
-  w <- Warp3DMorphism("mid1", "mid2", warp_path = warp_path, warp_type = "fsl")
+  w <- Warp3DMorphism("mid1", "mid2", warp_path = warp_path, warp_type = "fsl", source_affine = diag(4), source_dim = c(3L, 3L, 3L))
   g <- Affine3DMorphism("mid2", "tgt", aff_post)
 
   coords <- matrix(c(

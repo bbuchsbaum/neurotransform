@@ -304,11 +304,17 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
   if (!is.function(loader)) stop("loader must be a function")
 
   cache_env <- cache_env %||% morphism@cache %||% new_cache_env()
-  key <- morphism@warp_path
+  # FSL source/reference geometry changes the decoded values for the same file.
+  key <- if (identical(morphism@warp_type, "fsl")) {
+    paste0(morphism@warp_path, "::", morphism_hash(morphism))
+  } else morphism@warp_path
   if (exists(key, envir = cache_env, inherits = FALSE)) {
     return(get(key, envir = cache_env, inherits = FALSE))
   }
   value <- loader(morphism@warp_path)
+  if (identical(morphism@warp_type, "fsl")) {
+    value <- .fsl_dense_to_ras_displacement(value, morphism@params)
+  }
 
   # ANTs and AFNI NIfTI warps store vector components in LPS/DICOM
   # coordinates even though neuroim2 exposes the NIfTI grid in RAS.

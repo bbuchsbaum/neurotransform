@@ -148,7 +148,7 @@ test_that("warp_transform_coords handles absolute deformation type", {
   RNifti::sform(nii) <- diag(4)
   RNifti::writeNifti(nii, tmp)
 
-  morph <- Warp3DMorphism("a", "b", warp_path = tmp, warp_type = "fsl",
+  morph <- Warp3DMorphism("a", "b", warp_path = tmp, warp_type = "dense",
                           def_type = "absolute")
 
   # Test at center
@@ -181,7 +181,7 @@ test_that("warp_transform_coords caches converted absolute displacement", {
   RNifti::sform(nii) <- diag(4)
   RNifti::writeNifti(nii, tmp)
 
-  morph <- Warp3DMorphism("a", "b", warp_path = tmp, warp_type = "fsl",
+  morph <- Warp3DMorphism("a", "b", warp_path = tmp, warp_type = "dense",
                           def_type = "absolute")
 
   coords <- matrix(c(2, 2, 2), ncol = 3)

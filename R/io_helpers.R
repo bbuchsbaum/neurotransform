@@ -144,7 +144,12 @@ detect_transform_type <- function(path, source_affine = NULL, target_affine = NU
 #' @param source Optional source id
 #' @param target Optional target id
 #' @param apply_affine Logical; for ANTs H5 files, whether to include embedded affine
-#' @param ... Passed to morphism constructors
+#' @param ... Additional constructor arguments. Dense FSL fields require
+#'   \code{source_affine} and \code{source_dim}; optionally supply
+#'   \code{target_affine} and \code{target_dim} if the reference image grid
+#'   differs from the warp lattice. \code{def_type} specifies relative FSL
+#'   offsets or absolute FSL coordinates; \code{warp_method} controls field
+#'   interpolation. See \code{Warp3DMorphism}.
 #' @return A Morphism or MorphismPath object
 #' @rdname read_transform
 #' @export
@@ -231,7 +236,10 @@ read_transform <- function(path, type = NULL, source = NULL, target = NULL, appl
       target %||% "target",
       warp_path = path,
       warp_type = type,
-      def_type = def_type %||% "relative"
+      def_type = def_type %||% "relative",
+      warp_method = extra$warp_method %||% "linear",
+      source_affine = extra$source_affine, source_dim = extra$source_dim,
+      target_affine = extra$target_affine, target_dim = extra$target_dim
     ))
   }
   stop("Unsupported transform type: ", type)
@@ -501,12 +509,14 @@ write_warp_field <- function(x, path, representation = c("auto", "displacements"
   representation <- match.arg(representation)
 
   warp <- load_warp_array(x)
-  native <- if (identical(x@params$def_type %||% "relative", "absolute")) {
+  native <- if (identical(warp$def_type %||% x@params$def_type %||% "relative", "absolute")) {
     "deformations"
   } else {
     "displacements"
   }
-  target_repr <- if (identical(representation, "auto")) native else representation
+  target_repr <- if (identical(representation, "auto")) {
+    if (identical(x@params$def_type, "absolute")) "deformations" else "displacements"
+  } else representation
 
   field <- .unflatten_warp_components(warp$array, warp$dim)
   if (!identical(native, target_repr)) {

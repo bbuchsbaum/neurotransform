@@ -35,5 +35,16 @@
 - `detect_fnirt_def_type()` and `warp_from_field()` no longer mutate the
   caller RNG state.
 
+- Dense FSL relative and absolute fields now decode scaled-voxel coordinates
+  using source and reference image geometry, including handedness flips and
+  offsets. Evaluating these fields requires `source_affine` and `source_dim`;
+  reference geometry defaults to the warp lattice or can be supplied explicitly.
+  The normalized RAS displacement is shared by point transforms, resampling
+  plans, Jacobians, and exports. Inversion swaps the stored geometries.
 - Explicit `ants_h5` loading now routes affine-only H5 files through the existing
   ITK affine reader. Unsupported/ambiguous components still fail explicitly.
+- Warp instances now own independent caches, preventing one instance from
+  reusing another instance's decoded field after a file is rewritten.
+- Added native FSL 5.0.9 fixtures for all four source/reference handedness pairs,
+  with differing oblique grids, relative/absolute fields, image and coordinate
+  comparisons, flattened resampling, exports, and Jacobian regression checks.

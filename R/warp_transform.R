@@ -49,7 +49,7 @@ warp_transform_coords <- function(morphism, coords) {
   warp$affine <- NULL  # Don't apply here; handled separately
 
   # Handle absolute vs relative displacement fields
-  def_type <- morphism@params$def_type %||% "relative"
+  def_type <- warp$def_type %||% morphism@params$def_type %||% "relative"
   if (identical(def_type, "absolute")) {
     # Convert absolute coords to displacement once and cache
     cache_key <- paste0(morphism@warp_path, "::relative")

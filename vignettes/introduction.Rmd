@@ -202,7 +202,9 @@ warp <- Warp3DMorphism(
   source = "native",
   target = "mni",
   warp_path = "fnirt_warp.nii.gz",
-  warp_type = "fsl"
+  warp_type = "fsl",
+  source_affine = src_img_affine, source_dim = src_img_dim,
+  target_affine = tgt_img_affine, target_dim = tgt_img_dim
 )
 ```
 

@@ -70,10 +70,14 @@ test_that("FSL synthetic warp transform produces finite results", {
   arr <- array(0, dim = dimf)  # Zero displacement = identity
 
   tmp <- tempfile(fileext = ".nii.gz")
-  RNifti::writeNifti(arr, tmp)
+  nii <- RNifti::asNifti(arr)
+  RNifti::qform(nii) <- structure(diag(4), code = 1L)
+  RNifti::sform(nii) <- structure(diag(4), code = 1L)
+  RNifti::writeNifti(nii, tmp)
 
   morph <- Warp3DMorphism("src", "tgt", warp_path = tmp, warp_type = "fsl",
-                          def_type = "relative")
+                          def_type = "relative",
+                          source_affine = diag(4), source_dim = dimf[1:3])
 
   # With identity transform, world coords = voxel coords
   # Valid voxel range is 0 to 19 (20 voxels)
@@ -107,18 +111,21 @@ test_that("FSL warp with small displacement transforms correctly", {
   nii <- RNifti::asNifti(arr)
   xform_mat <- diag(c(2, 2, 2, 1))
   xform_mat[1:3, 4] <- c(0, 0, 0)
-  RNifti::sform(nii) <- xform_mat
+  RNifti::pixdim(nii) <- c(2, 2, 2, 1)
+  RNifti::qform(nii) <- structure(xform_mat, code = 1L)
+  RNifti::sform(nii) <- structure(xform_mat, code = 1L)
   RNifti::writeNifti(nii, tmp)
 
   morph <- Warp3DMorphism("src", "tgt", warp_path = tmp, warp_type = "fsl",
-                          def_type = "relative")
+                          def_type = "relative",
+                          source_affine = xform_mat, source_dim = dimf[1:3])
 
   # Test at a point within the warp volume (10mm from origin)
   test_coords <- matrix(c(10, 10, 10), ncol = 3)
   warped <- transform(morph, test_coords)
 
-  # Should have +1mm in X (10 + 1 = 11)
-  expect_equal(warped[1, 1], 11, tolerance = 0.1)
+  # FSL positive X is negative RAS X on this right-handed source grid.
+  expect_equal(warped[1, 1], 9, tolerance = 0.1)
   expect_equal(warped[1, 2], 10, tolerance = 0.1)
   expect_equal(warped[1, 3], 10, tolerance = 0.1)
 

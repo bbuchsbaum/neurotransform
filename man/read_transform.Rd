@@ -25,7 +25,12 @@ fsl_affine, afni_affine, itk_affine, lta_affine}
 
 \item{apply_affine}{Logical; for ANTs H5 files, whether to include embedded affine}
 
-\item{...}{Passed to morphism constructors}
+\item{...}{Additional constructor arguments. Dense FSL fields require
+\code{source_affine} and \code{source_dim}; optionally supply
+\code{target_affine} and \code{target_dim} if the reference image grid
+differs from the warp lattice. \code{def_type} specifies relative FSL
+offsets or absolute FSL coordinates; \code{warp_method} controls field
+interpolation. See \code{Warp3DMorphism}.}
 }
 \value{
 A Morphism or MorphismPath object

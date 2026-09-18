@@ -68,6 +68,48 @@ fsl_fsl_to_world <- function(affine, dim = NULL) {
   affine %*% fsl_fsl_to_vox(affine, dim = dim)
 }
 
+# A dense FSL field maps reference FSL coordinates to source FSL coordinates.
+# Normalize both representations to RAS displacements at the field lattice so
+# coordinate transforms, flattened resampling plans, and Jacobians share it.
+.fsl_dense_to_ras_displacement <- function(field, params) {
+  validate <- function(affine, dims, label) {
+    if (is.null(affine) || is.null(dims)) {
+      stop("Dense FSL warps require ", label, "_affine and ", label, "_dim")
+    }
+    if (!is.matrix(affine) || !identical(dim(affine), c(4L, 4L)) ||
+        any(!is.finite(affine)) || abs(det(affine[1:3, 1:3])) < 1e-12 ||
+        any(abs(affine[4, ] - c(0, 0, 0, 1)) > 1e-10)) {
+      stop(label, "_affine must be a finite, nonsingular 4x4 voxel-to-RAS affine")
+    }
+    if (!is.numeric(dims) || length(dims) != 3L || any(!is.finite(dims)) ||
+        any(dims < 1 | dims != floor(dims))) {
+      stop(label, "_dim must contain three positive integer dimensions")
+    }
+  }
+  sa <- params$source_affine
+  sd <- params$source_dim
+  # The field grid is normally the reference image grid. Explicit reference
+  # geometry is needed if the dense field is sampled on a different lattice.
+  ta <- params$target_affine
+  td <- params$target_dim
+  if (is.null(ta) && is.null(td)) {
+    ta <- field$vox_to_world
+    td <- field$dim
+  }
+  validate(sa, sd, "source")
+  validate(ta, td, "target")
+  world <- .grid_world_coords_matrix(field$dim, field$vox_to_world)
+  native <- matrix(field$array, ncol = 3L, byrow = TRUE)
+  if (!identical(params$def_type, "absolute")) {
+    ref_fsl <- (cbind(world, 1) %*% t(fsl_world_to_fsl(ta, td)))[, 1:3, drop = FALSE]
+    native <- native + ref_fsl
+  }
+  source_world <- (cbind(native, 1) %*% t(fsl_fsl_to_world(sa, sd)))[, 1:3, drop = FALSE]
+  field$array <- as.numeric(t(source_world - world))
+  field$def_type <- "relative"
+  field
+}
+
 #' Convert FLIRT matrix to internal affine
 #'
 #' Given a FLIRT matrix (source_FSL -> ref_FSL), returns the internal
