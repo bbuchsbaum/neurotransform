@@ -30,6 +30,9 @@ Suggests:
     knitr,
     neurosurf,
     rmarkdown
+Remotes:
+    bbuchsbaum/neurosurf
+Additional_repositories: https://bbuchsbaum.r-universe.dev
 VignetteBuilder: knitr
 LinkingTo:
     Rcpp,
