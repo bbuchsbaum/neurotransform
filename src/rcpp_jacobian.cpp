@@ -74,7 +74,8 @@ inline bool sample_disp_local_cubic(const double* field, int nx, int ny, int nz,
         x_vals[ix][2] = field[base + 2];
       }
       for (int c = 0; c < 3; ++c) {
-        y_rows[iy][c] = cubic_interp_1d(&x_vals[0][c], fx);
+        double tmp[4] = { x_vals[0][c], x_vals[1][c], x_vals[2][c], x_vals[3][c] };
+        y_rows[iy][c] = cubic_interp_1d(tmp, fx);
       }
     }
     for (int c = 0; c < 3; ++c) {
@@ -87,6 +88,22 @@ inline bool sample_disp_local_cubic(const double* field, int nx, int ny, int nz,
     out[c] = cubic_interp_1d(tmp, fz);
   }
   return true;
+}
+
+// G contains d(displacement_RAS)/d(voxel), in row-major order.
+// J = I + G * d(voxel)/d(world_RAS). Spacing alone loses axis signs,
+// rotations, and shear; use the full inverse grid matrix.
+inline void displacement_gradient_to_world(double* G,
+                                            const Rcpp::NumericMatrix& world_to_vox) {
+  double J[9];
+  for (int r = 0; r < 3; ++r) {
+    for (int c = 0; c < 3; ++c) {
+      double value = (r == c) ? 1.0 : 0.0;
+      for (int k = 0; k < 3; ++k) value += G[r*3+k] * world_to_vox(k,c);
+      J[r*3+c] = value;
+    }
+  }
+  for (int k = 0; k < 9; ++k) G[k] = J[k];
 }
 
 //' Compute Jacobian matrices for a warp field at given coordinates
@@ -118,17 +135,6 @@ Rcpp::NumericVector cpp_warp_jacobian(const Rcpp::NumericMatrix& coords,
   // Finite difference step in voxel coords
   double h = 0.5;
 
-  // Get voxel spacing from vox_to_world for proper scaling
-  double vox_spacing[3];
-  vox_spacing[0] = sqrt(vox_to_world(0,0)*vox_to_world(0,0) +
-                        vox_to_world(1,0)*vox_to_world(1,0) +
-                        vox_to_world(2,0)*vox_to_world(2,0));
-  vox_spacing[1] = sqrt(vox_to_world(0,1)*vox_to_world(0,1) +
-                        vox_to_world(1,1)*vox_to_world(1,1) +
-                        vox_to_world(2,1)*vox_to_world(2,1));
-  vox_spacing[2] = sqrt(vox_to_world(0,2)*vox_to_world(0,2) +
-                        vox_to_world(1,2)*vox_to_world(1,2) +
-                        vox_to_world(2,2)*vox_to_world(2,2));
 
 #ifdef _OPENMP
   #pragma omp parallel for
@@ -141,10 +147,9 @@ Rcpp::NumericVector cpp_warp_jacobian(const Rcpp::NumericMatrix& coords,
     double vy = world_to_vox(1,0)*wx + world_to_vox(1,1)*wy + world_to_vox(1,2)*wz + world_to_vox(1,3);
     double vz = world_to_vox(2,0)*wx + world_to_vox(2,1)*wy + world_to_vox(2,2)*wz + world_to_vox(2,3);
 
-    // Initialize Jacobian as identity (for the base coordinate)
-    // J_ij = d(source_i) / d(target_j)
-    // source = target + disp, so J = I + d(disp)/d(target)
-    double J[9] = {1,0,0, 0,1,0, 0,0,1};
+    // First compute d(displacement_RAS)/d(voxel), then apply the
+    // full world-to-voxel chain rule and add the identity.
+    double J[9] = {0,0,0, 0,0,0, 0,0,0};
 
     // Compute partial derivatives via central differences
     double disp_plus[3], disp_minus[3];
@@ -152,7 +157,7 @@ Rcpp::NumericVector cpp_warp_jacobian(const Rcpp::NumericMatrix& coords,
     // d/dx
     if (sample_disp_local(fdata, nx, ny, nz, vx+h, vy, vz, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx-h, vy, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[0]);
+      double scale = 1.0 / (2.0 * h);
       J[0] += (disp_plus[0] - disp_minus[0]) * scale;  // d(disp_x)/d(x)
       J[3] += (disp_plus[1] - disp_minus[1]) * scale;  // d(disp_y)/d(x)
       J[6] += (disp_plus[2] - disp_minus[2]) * scale;  // d(disp_z)/d(x)
@@ -161,7 +166,7 @@ Rcpp::NumericVector cpp_warp_jacobian(const Rcpp::NumericMatrix& coords,
     // d/dy
     if (sample_disp_local(fdata, nx, ny, nz, vx, vy+h, vz, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx, vy-h, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[1]);
+      double scale = 1.0 / (2.0 * h);
       J[1] += (disp_plus[0] - disp_minus[0]) * scale;
       J[4] += (disp_plus[1] - disp_minus[1]) * scale;
       J[7] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -170,11 +175,13 @@ Rcpp::NumericVector cpp_warp_jacobian(const Rcpp::NumericMatrix& coords,
     // d/dz
     if (sample_disp_local(fdata, nx, ny, nz, vx, vy, vz+h, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx, vy, vz-h, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[2]);
+      double scale = 1.0 / (2.0 * h);
       J[2] += (disp_plus[0] - disp_minus[0]) * scale;
       J[5] += (disp_plus[1] - disp_minus[1]) * scale;
       J[8] += (disp_plus[2] - disp_minus[2]) * scale;
     }
+
+    displacement_gradient_to_world(J, world_to_vox);
 
     // Store in column-major order for R (n x 3 x 3)
     // out[i, j, k] = out[i + n*j + n*3*k]
@@ -202,16 +209,6 @@ Rcpp::NumericVector cpp_warp_jacobian_cubic(const Rcpp::NumericMatrix& coords,
   out.attr("dim") = Rcpp::IntegerVector::create(n, 3, 3);
   double h = 0.5;
 
-  double vox_spacing[3];
-  vox_spacing[0] = sqrt(vox_to_world(0,0)*vox_to_world(0,0) +
-                        vox_to_world(1,0)*vox_to_world(1,0) +
-                        vox_to_world(2,0)*vox_to_world(2,0));
-  vox_spacing[1] = sqrt(vox_to_world(0,1)*vox_to_world(0,1) +
-                        vox_to_world(1,1)*vox_to_world(1,1) +
-                        vox_to_world(2,1)*vox_to_world(2,1));
-  vox_spacing[2] = sqrt(vox_to_world(0,2)*vox_to_world(0,2) +
-                        vox_to_world(1,2)*vox_to_world(1,2) +
-                        vox_to_world(2,2)*vox_to_world(2,2));
 
 #ifdef _OPENMP
   #pragma omp parallel for
@@ -222,12 +219,12 @@ Rcpp::NumericVector cpp_warp_jacobian_cubic(const Rcpp::NumericMatrix& coords,
     double vy = world_to_vox(1,0)*wx + world_to_vox(1,1)*wy + world_to_vox(1,2)*wz + world_to_vox(1,3);
     double vz = world_to_vox(2,0)*wx + world_to_vox(2,1)*wy + world_to_vox(2,2)*wz + world_to_vox(2,3);
 
-    double J[9] = {1,0,0, 0,1,0, 0,0,1};
+    double J[9] = {0,0,0, 0,0,0, 0,0,0};
     double disp_plus[3], disp_minus[3];
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx+h, vy, vz, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx-h, vy, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[0]);
+      double scale = 1.0 / (2.0 * h);
       J[0] += (disp_plus[0] - disp_minus[0]) * scale;
       J[3] += (disp_plus[1] - disp_minus[1]) * scale;
       J[6] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -235,7 +232,7 @@ Rcpp::NumericVector cpp_warp_jacobian_cubic(const Rcpp::NumericMatrix& coords,
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy+h, vz, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy-h, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[1]);
+      double scale = 1.0 / (2.0 * h);
       J[1] += (disp_plus[0] - disp_minus[0]) * scale;
       J[4] += (disp_plus[1] - disp_minus[1]) * scale;
       J[7] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -243,11 +240,13 @@ Rcpp::NumericVector cpp_warp_jacobian_cubic(const Rcpp::NumericMatrix& coords,
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy, vz+h, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy, vz-h, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[2]);
+      double scale = 1.0 / (2.0 * h);
       J[2] += (disp_plus[0] - disp_minus[0]) * scale;
       J[5] += (disp_plus[1] - disp_minus[1]) * scale;
       J[8] += (disp_plus[2] - disp_minus[2]) * scale;
     }
+
+    displacement_gradient_to_world(J, world_to_vox);
 
     for (int j = 0; j < 3; ++j) {
       for (int k = 0; k < 3; ++k) {
@@ -272,16 +271,6 @@ Rcpp::NumericVector cpp_warp_jacobian_det_cubic(const Rcpp::NumericMatrix& coord
   Rcpp::NumericVector out(n);
   double h = 0.5;
 
-  double vox_spacing[3];
-  vox_spacing[0] = sqrt(vox_to_world(0,0)*vox_to_world(0,0) +
-                        vox_to_world(1,0)*vox_to_world(1,0) +
-                        vox_to_world(2,0)*vox_to_world(2,0));
-  vox_spacing[1] = sqrt(vox_to_world(0,1)*vox_to_world(0,1) +
-                        vox_to_world(1,1)*vox_to_world(1,1) +
-                        vox_to_world(2,1)*vox_to_world(2,1));
-  vox_spacing[2] = sqrt(vox_to_world(0,2)*vox_to_world(0,2) +
-                        vox_to_world(1,2)*vox_to_world(1,2) +
-                        vox_to_world(2,2)*vox_to_world(2,2));
 
 #ifdef _OPENMP
   #pragma omp parallel for
@@ -293,12 +282,12 @@ Rcpp::NumericVector cpp_warp_jacobian_det_cubic(const Rcpp::NumericMatrix& coord
     double vy = world_to_vox(1,0)*wx + world_to_vox(1,1)*wy + world_to_vox(1,2)*wz + world_to_vox(1,3);
     double vz = world_to_vox(2,0)*wx + world_to_vox(2,1)*wy + world_to_vox(2,2)*wz + world_to_vox(2,3);
 
-    double J[9] = {1,0,0, 0,1,0, 0,0,1};
+    double J[9] = {0,0,0, 0,0,0, 0,0,0};
     double disp_plus[3], disp_minus[3];
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx+h, vy, vz, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx-h, vy, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[0]);
+      double scale = 1.0 / (2.0 * h);
       J[0] += (disp_plus[0] - disp_minus[0]) * scale;
       J[3] += (disp_plus[1] - disp_minus[1]) * scale;
       J[6] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -306,7 +295,7 @@ Rcpp::NumericVector cpp_warp_jacobian_det_cubic(const Rcpp::NumericMatrix& coord
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy+h, vz, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy-h, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[1]);
+      double scale = 1.0 / (2.0 * h);
       J[1] += (disp_plus[0] - disp_minus[0]) * scale;
       J[4] += (disp_plus[1] - disp_minus[1]) * scale;
       J[7] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -314,11 +303,13 @@ Rcpp::NumericVector cpp_warp_jacobian_det_cubic(const Rcpp::NumericMatrix& coord
 
     if (sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy, vz+h, disp_plus) &&
         sample_disp_local_cubic(fdata, nx, ny, nz, vx, vy, vz-h, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[2]);
+      double scale = 1.0 / (2.0 * h);
       J[2] += (disp_plus[0] - disp_minus[0]) * scale;
       J[5] += (disp_plus[1] - disp_minus[1]) * scale;
       J[8] += (disp_plus[2] - disp_minus[2]) * scale;
     }
+
+    displacement_gradient_to_world(J, world_to_vox);
 
     out[i] = J[0]*(J[4]*J[8] - J[7]*J[5])
            - J[1]*(J[3]*J[8] - J[6]*J[5])
@@ -353,16 +344,6 @@ Rcpp::NumericVector cpp_warp_jacobian_det(const Rcpp::NumericMatrix& coords,
 
   double h = 0.5;
 
-  double vox_spacing[3];
-  vox_spacing[0] = sqrt(vox_to_world(0,0)*vox_to_world(0,0) +
-                        vox_to_world(1,0)*vox_to_world(1,0) +
-                        vox_to_world(2,0)*vox_to_world(2,0));
-  vox_spacing[1] = sqrt(vox_to_world(0,1)*vox_to_world(0,1) +
-                        vox_to_world(1,1)*vox_to_world(1,1) +
-                        vox_to_world(2,1)*vox_to_world(2,1));
-  vox_spacing[2] = sqrt(vox_to_world(0,2)*vox_to_world(0,2) +
-                        vox_to_world(1,2)*vox_to_world(1,2) +
-                        vox_to_world(2,2)*vox_to_world(2,2));
 
 #ifdef _OPENMP
   #pragma omp parallel for
@@ -374,12 +355,12 @@ Rcpp::NumericVector cpp_warp_jacobian_det(const Rcpp::NumericMatrix& coords,
     double vy = world_to_vox(1,0)*wx + world_to_vox(1,1)*wy + world_to_vox(1,2)*wz + world_to_vox(1,3);
     double vz = world_to_vox(2,0)*wx + world_to_vox(2,1)*wy + world_to_vox(2,2)*wz + world_to_vox(2,3);
 
-    double J[9] = {1,0,0, 0,1,0, 0,0,1};
+    double J[9] = {0,0,0, 0,0,0, 0,0,0};
     double disp_plus[3], disp_minus[3];
 
     if (sample_disp_local(fdata, nx, ny, nz, vx+h, vy, vz, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx-h, vy, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[0]);
+      double scale = 1.0 / (2.0 * h);
       J[0] += (disp_plus[0] - disp_minus[0]) * scale;
       J[3] += (disp_plus[1] - disp_minus[1]) * scale;
       J[6] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -387,7 +368,7 @@ Rcpp::NumericVector cpp_warp_jacobian_det(const Rcpp::NumericMatrix& coords,
 
     if (sample_disp_local(fdata, nx, ny, nz, vx, vy+h, vz, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx, vy-h, vz, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[1]);
+      double scale = 1.0 / (2.0 * h);
       J[1] += (disp_plus[0] - disp_minus[0]) * scale;
       J[4] += (disp_plus[1] - disp_minus[1]) * scale;
       J[7] += (disp_plus[2] - disp_minus[2]) * scale;
@@ -395,13 +376,15 @@ Rcpp::NumericVector cpp_warp_jacobian_det(const Rcpp::NumericMatrix& coords,
 
     if (sample_disp_local(fdata, nx, ny, nz, vx, vy, vz+h, disp_plus) &&
         sample_disp_local(fdata, nx, ny, nz, vx, vy, vz-h, disp_minus)) {
-      double scale = 1.0 / (2.0 * h * vox_spacing[2]);
+      double scale = 1.0 / (2.0 * h);
       J[2] += (disp_plus[0] - disp_minus[0]) * scale;
       J[5] += (disp_plus[1] - disp_minus[1]) * scale;
       J[8] += (disp_plus[2] - disp_minus[2]) * scale;
     }
 
     // det(J) = J[0]*(J[4]*J[8]-J[5]*J[7]) - J[1]*(J[3]*J[8]-J[5]*J[6]) + J[2]*(J[3]*J[7]-J[4]*J[6])
+    displacement_gradient_to_world(J, world_to_vox);
+
     out[i] = J[0]*(J[4]*J[8] - J[7]*J[5])
            - J[1]*(J[3]*J[8] - J[6]*J[5])
            + J[2]*(J[3]*J[7] - J[6]*J[4]);

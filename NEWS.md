@@ -1,5 +1,9 @@
 # neurotransform 0.1.0
 
+- Fixed cubic warp interpolation mixing adjacent vector components.
+- Corrected warp Jacobians to use the full grid orientation when converting
+  voxel derivatives to physical RAS derivatives.
+
 - Corrected AFNI affine axis conversion and the default direction of
   `3dAllineate -1Dmatrix_save` matrices.
 

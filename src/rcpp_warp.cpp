@@ -93,7 +93,8 @@ inline bool sample_disp_cubic(const Rcpp::NumericVector& field, const Rcpp::Inte
         x_vals[ix][2] = field[base + 2];
       }
       for (int c = 0; c < 3; ++c) {
-        y_rows[iy][c] = cubic_interp_1d(&x_vals[0][c], fx);
+        double tmp[4] = { x_vals[0][c], x_vals[1][c], x_vals[2][c], x_vals[3][c] };
+        y_rows[iy][c] = cubic_interp_1d(tmp, fx);
       }
     }
     for (int c = 0; c < 3; ++c) {
