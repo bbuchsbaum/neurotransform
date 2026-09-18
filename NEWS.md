@@ -1,6 +1,7 @@
-# neurotransform news
+# neurotransform 0.1.0
 
-## Unreleased
+- Corrected AFNI affine axis conversion and the default direction of
+  `3dAllineate -1Dmatrix_save` matrices.
 
 - Fixed FSL handedness handling for right-handed affines. `fsl_vox_to_fsl()`
   and the higher-level FSL affine conversion stack now require image

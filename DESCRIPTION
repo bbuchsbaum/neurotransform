@@ -26,7 +26,9 @@ Suggests:
     testthat (>= 3.0.0),
     Matrix,
     hdf5r,
+    jsonlite,
     knitr,
+    neurosurf,
     rmarkdown
 VignetteBuilder: knitr
 LinkingTo:
@@ -55,9 +57,9 @@ Collate:
     'warp_transform.R'
     'warp_chain.R'
     'transform_path.R'
+    'afni_io.R'
     'afni_warp.R'
     'fsl_ingest.R'
-    'afni_io.R'
     'affine_utils.R'
     'deformation_field.R'
     'resampling_plan.R'

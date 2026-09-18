@@ -4,7 +4,12 @@
 ^neurotransform\.Rcheck$
 ^.*\.tar\.gz$
 ^\.github$
+^\.omc$
+^docs$
+^(API_DESIGN|DESIGN_REVIEW_FEEDBACK|DEVELOPER_GUIDE|PROJECTOR_APPLY_HANDOFF|Progress|VNEXT_DESIGN|Vision)\.md$
 ^src/.*\\.(o|so|gcno|gcda)$
 ^inst/extdata/afni$
 ^inst/extdata/chris$
 ^inst/extdata/demo1$
+^output$
+^tools$

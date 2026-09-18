@@ -8,6 +8,9 @@
 \usage{
 \S4method{show}{SurfaceMesh}(object)
 }
+\arguments{
+\item{object}{A \code{SurfaceMesh} object (for the show method).}
+}
 \description{
 Lightweight mesh reference for surface operations.
 }

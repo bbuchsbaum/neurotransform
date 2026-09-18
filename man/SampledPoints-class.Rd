@@ -8,6 +8,9 @@
 \usage{
 \S4method{show}{SampledPoints}(object)
 }
+\arguments{
+\item{object}{A \code{SampledPoints} object (for the show method).}
+}
 \description{
 Lightweight container for point samples in world coordinates.
 }

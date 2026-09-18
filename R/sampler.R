@@ -97,6 +97,7 @@ setMethod("show", "Grid", function(object) {
 #' Lightweight container for point samples in world coordinates.
 #'
 #' @slot coords Numeric matrix (N x 3)
+#' @param object A `SampledPoints` object (for the show method).
 #' @export
 setClass("SampledPoints",
   slots = c(
@@ -113,6 +114,7 @@ setClass("SampledPoints",
 #'
 #' @slot coords Numeric matrix (V x 3) of vertices
 #' @slot faces Integer matrix (F x 3) of 0-based triangle indices
+#' @param object A `SurfaceMesh` object (for the show method).
 #' @export
 setClass("SurfaceMesh",
   slots = c(
@@ -323,7 +325,6 @@ setMethod("extract_affine", "DenseNeuroVec", function(x) {
 #' @param affine 4x4 voxel-to-world (extracted if NULL)
 #' @param method Interpolation: "linear", "nearest", "cubic"
 #' @param outside Value for out-of-bounds
-#' @param domain Optional domain hash
 #' @return Sampler object
 #' @export
 #' @examples

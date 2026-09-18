@@ -19,8 +19,6 @@ volume_sampler(
 \item{method}{Interpolation: "linear", "nearest", "cubic"}
 
 \item{outside}{Value for out-of-bounds}
-
-\item{domain}{Optional domain hash}
 }
 \value{
 Sampler object

@@ -14,6 +14,7 @@
 //' @param data Numeric matrix of data
 //' @param threads Number of OpenMP threads
 //' @return Projected data matrix
+//' @name cpp_apply_projector
 //' @keywords internal
 //
 // =============================================================================
