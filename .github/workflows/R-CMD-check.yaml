@@ -9,6 +9,11 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.os }} (R ${{ matrix.config.r }})
 
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      # neurosurf depends on rgl, which cannot open OpenGL on headless runners.
+      RGL_USE_NULL: true
+
     strategy:
       fail-fast: false
       matrix:
