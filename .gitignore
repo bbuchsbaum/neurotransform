@@ -25,3 +25,7 @@ docs/
 
 # Local session artifacts (audit reports, notes)
 .omc/
+
+# Regenerable native-tool visual QA outputs
+output/visual-qa/
+tools/visual_qa/__pycache__/
