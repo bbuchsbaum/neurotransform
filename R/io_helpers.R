@@ -277,9 +277,10 @@ read_linear_transform <- function(path,
     itk = {
       itk_lps <- .read_itk_affine(path)
       flip <- diag(c(-1, -1, 1, 1))
-      itk_ras <- flip %*% itk_lps %*% flip
-      # ITK stores forward transforms. Internal representation is pullback.
-      solve(itk_ras)
+      # ITK image-resampling transforms already map fixed/target physical
+      # coordinates to moving/source physical coordinates. Convert LPS to the
+      # package's RAS pullback convention without reversing the mapping.
+      flip %*% itk_lps %*% flip
     },
     lta = {
       lta <- .read_lta(path)
@@ -370,11 +371,11 @@ write_linear_transform <- function(x,
   }
 
   if (identical(format, "itk")) {
-    # Internal is pullback (target->source); ITK file expects forward (source->target).
-    forward_ras <- solve(mat)
+    # ITK image-resampling transforms use the same target->source pullback
+    # direction as the internal representation, but in LPS coordinates.
     flip <- diag(c(-1, -1, 1, 1))
-    forward_lps <- flip %*% forward_ras %*% flip
-    .write_itk_affine(forward_lps, path)
+    pullback_lps <- flip %*% mat %*% flip
+    .write_itk_affine(pullback_lps, path)
     return(invisible(path))
   }
 
@@ -483,6 +484,11 @@ warp_from_field <- function(source, target, field, grid = NULL,
 
 #' Write a warp morphism as a NIfTI vector field
 #'
+#' Writes a 5D vector image (X, Y, Z, 1, 3), with intent code 1007 and LPS
+#' components. Displacement output is compatible with ANTs. Absolute deformation
+#' output contains source coordinates and must be explicitly read as such;
+#' ANTs expects displacements. Requires RNifti.
+#'
 #' @param x Warp3DMorphism
 #' @param path Output NIfTI path
 #' @param representation Output representation: \code{"displacements"},
@@ -491,6 +497,7 @@ warp_from_field <- function(source, target, field, grid = NULL,
 #' @export
 write_warp_field <- function(x, path, representation = c("auto", "displacements", "deformations")) {
   if (!is(x, "Warp3DMorphism")) stop("x must be a Warp3DMorphism")
+  if (!requireNamespace("RNifti", quietly = TRUE)) stop("RNifti required to write vector fields")
   representation <- match.arg(representation)
 
   warp <- load_warp_array(x)
@@ -511,25 +518,31 @@ write_warp_field <- function(x, path, representation = c("auto", "displacements"
     }
   }
 
-  # Pass spacing/origin explicitly for robust qform/sform consistency.
-  D <- min(length(warp$dim), 3L)
-  spacing <- sqrt(colSums(warp$vox_to_world[1:3, 1:3, drop = FALSE]^2))
-  origin <- warp$vox_to_world[1:3, 4]
-  space <- neuroim2::NeuroSpace(
-    c(warp$dim, 3L),
-    spacing = spacing[seq_len(D)],
-    origin = origin[seq_len(D)],
-    trans = warp$vox_to_world
+  # ANTs NIfTI vector components are LPS even though the NIfTI grid affine is
+  # exposed in RAS. Convert the internal RAS vectors/coordinates on write.
+  field[, , , 1] <- -field[, , , 1]
+  field[, , , 2] <- -field[, , , 2]
+
+  # ANTs/ITK requires components on axis 5 and NIFTI_INTENT_VECTOR. A 4D
+  # NeuroVec would instead be written as a scalar time series.
+  image <- RNifti::asNifti(
+    array(field, dim = c(warp$dim, 1L, 3L)),
+    reference = list(intent_code = 1007L, xyzt_units = 2L)
   )
-  vec <- neuroim2::DenseNeuroVec(field, space)
-  neuroim2::write_vec(vec, path, format = "nifti")
+  spacing <- sqrt(colSums(warp$vox_to_world[1:3, 1:3, drop = FALSE]^2))
+  image <- RNifti::`pixdim<-`(image, c(spacing, 1, 1))
+  affine <- structure(warp$vox_to_world, code = 1L)
+  image <- RNifti::`qform<-`(image, affine)
+  image <- RNifti::`sform<-`(image, affine)
+  RNifti::writeNifti(image, path, datatype = "float")
   invisible(path)
 }
 
 #' Write a transform to disk
 #'
 #' Convenience wrapper around \code{write_linear_transform()} for affine morphisms
-#' and raw 4x4 matrices. For \code{Warp3DMorphism}, writes a NIfTI vector field.
+#' and raw 4x4 matrices. For \code{Warp3DMorphism}, writes an LPS NIfTI vector
+#' field (ANTs-compatible when the output contains displacements).
 #'
 #' @param x Affine3DMorphism, Warp3DMorphism, or 4x4 numeric matrix
 #' @param path Output file path
@@ -648,57 +661,55 @@ resample_to <- function(moving, target, transform,
 #' These files typically contain both a displacement field and an affine transform.
 #'
 #' @section Pullback Ordering:
-#' When `apply_affine=TRUE`, returns a MorphismPath ordered as `[warp, affine]`.
-#' This ordering is critical for correct pullback (resampling) semantics:
-#'
-#' \itemize{
-#'   \item MorphismPath applies transforms right-to-left for pullback
-#'   \item `[warp, affine]` means: `affine_pullback(warp_pullback(coords))`
-#'   \item Target coords -> warp lookup -> affine transform -> source coords
-#' }
-#'
-#' The ANTs forward transform is "affine then warp", so pullback (inverse) is
-#' "inverse_warp then inverse_affine" - hence the `[warp, affine]` order.
+#' When `apply_affine=TRUE`, the H5 component order is preserved in the returned
+#' `MorphismPath`. Both ITK composite transforms and `MorphismPath` evaluate the
+#' stored components from last to first, so preserving the order reproduces ITK
+#' point-transform semantics.
 #'
 #' @param path Path to ANTs H5 file
 #' @param source Source coordinate space identifier
 #' @param target Target coordinate space identifier
 #' @param apply_affine If TRUE and an embedded affine is present, return a
 #'   MorphismPath combining warp and affine. If FALSE, return only the warp.
-#' @return Warp3DMorphism (if no affine or apply_affine=FALSE) or MorphismPath
+#' @return Warp3DMorphism (if no affine or apply_affine=FALSE), MorphismPath,
+#'   or Affine3DMorphism for an affine-only H5 file. For an affine-only file,
+#'   \code{apply_affine=FALSE} is an error because there is no displacement field.
 #' @export
 ants_h5_morphism <- function(path, source = "source", target = "target", apply_affine = TRUE) {
+  if (identical(.detect_h5_transform_type(path), "itk_affine")) {
+    if (!apply_affine) stop("Affine-only H5 has no displacement component to return with apply_affine=FALSE")
+    return(read_linear_transform(path, format = "itk", source = source, target = target))
+  }
   warp_m <- Warp3DMorphism(source, target, warp_path = path, warp_type = "ants_h5")
 
   if (!apply_affine) {
     return(warp_m)
   }
 
-  aff_mat <- NULL
-  # Peek at embedded affine
-  if (exists("load_warp_ants_h5", envir = asNamespace("neurotransform"))) {
-    info <- load_warp_ants_h5(path)
-    aff_mat <- info$affine
-  }
+  info <- load_warp_ants_h5(path)
+  aff_mat <- info$affine
 
   if (is.null(aff_mat)) {
     return(warp_m)
   }
 
-  # For pullback semantics (target->source), the path is applied from last to first.
-  # ANTs composite: forward is affine then warp, so pullback is inverse_warp then inverse_affine.
-  # Since transform_path applies [f, g] as g_pullback(f_pullback(coords)),
-  # we order as [warp, affine] so: affine_pullback(warp_pullback(coords))
-  # This gives: coords -> warp lookup -> affine transform -> source coords
-  #
-  # The warp goes from source to an intermediate "warp_space" (its output coordinates).
-  # The affine then goes from warp_space to target.
-  # For pullback, we need: target -> warp_space -> source
-  warp_space <- paste0(source, "_warp_space")
-  warp_m <- Warp3DMorphism(source, warp_space, warp_path = path, warp_type = "ants_h5")
-  aff_m <- Affine3DMorphism(warp_space, target, matrix = aff_mat)
+  order <- info$transform_order
+  if (!identical(sort(order), c("affine", "warp"))) {
+    stop("ANTs H5 composite must contain exactly one affine and one displacement transform.")
+  }
+
+  intermediate <- paste0(source, "_h5_intermediate")
+  if (identical(order, c("affine", "warp"))) {
+    aff_m <- Affine3DMorphism(source, intermediate, matrix = aff_mat)
+    warp_m <- Warp3DMorphism(intermediate, target, warp_path = path, warp_type = "ants_h5")
+    morphisms <- list(aff_m, warp_m)
+  } else {
+    warp_m <- Warp3DMorphism(source, intermediate, warp_path = path, warp_type = "ants_h5")
+    aff_m <- Affine3DMorphism(intermediate, target, matrix = aff_mat)
+    morphisms <- list(warp_m, aff_m)
+  }
   methods::new("MorphismPath",
-               morphisms = list(warp_m, aff_m),
+               morphisms = morphisms,
                source = source,
                target = target)
 }
@@ -788,6 +799,47 @@ ants_h5_morphism <- function(path, source = "source", target = "target", apply_a
   group[[dataset_name]]$read()
 }
 
+# Validate the component inventory before reading any transform. Only the
+# leading CompositeTransform sentinel is metadata; every other entry must be
+# supported, so a partial mapping can never masquerade as the full transform.
+.ants_h5_components <- function(tg, allowed) {
+  keys <- names(tg)
+  if (!length(keys) || any(!grepl("^(0|[1-9][0-9]*)$", keys))) {
+    .stop_transform_file("H5 transform groups must have numeric component indices.")
+  }
+  keys <- keys[order(as.numeric(keys))]
+  types <- vapply(keys, function(k) {
+    g <- tg[[k]]
+    tt <- if ("TransformType" %in% names(g)) g[["TransformType"]]$read() else character()
+    if (length(tt) != 1L || is.na(tt) || !nzchar(tt)) {
+      .stop_transform_file(paste("Missing or invalid H5 TransformType in group", k))
+    }
+    as.character(tt)
+  }, character(1))
+  sentinel <- grepl("^CompositeTransform_(double|float)_3_3$", types)
+  if (any(sentinel) && (!identical(unname(which(sentinel)), 1L) || keys[[1L]] != "0")) {
+    .stop_transform_file("Unsupported nested or misplaced H5 CompositeTransform.")
+  }
+  pattern <- paste0("^(", paste(allowed, collapse = "|"), ")_(double|float)_3_3$")
+  unsupported <- !sentinel & !grepl(pattern, types)
+  if (any(unsupported)) {
+    .stop_transform_file(paste("Unsupported H5 transform component:", paste(types[unsupported], collapse = ", ")))
+  }
+  types[!sentinel]
+}
+
+.ants_h5_affine <- function(group) {
+  params <- .ants_h5_read_dataset(group, "TransformParameters")
+  fixed <- .ants_h5_read_dataset(group, "TransformFixedParameters")
+  if (length(params) != 12L || any(!is.finite(params))) {
+    .stop_transform_file("H5 affine parameters must contain exactly 12 finite values.")
+  }
+  if (length(fixed) != 3L || any(!is.finite(fixed))) {
+    .stop_transform_file("H5 affine fixed parameters must contain exactly 3 finite values.")
+  }
+  .itk_params_to_affine(params, fixed)
+}
+
 # Read all affine transforms from an ITK Composite H5 file.
 .read_itk_affine_h5 <- function(path) {
   if (!requireNamespace("hdf5r", quietly = TRUE)) {
@@ -800,25 +852,8 @@ ants_h5_morphism <- function(path, source = "source", target = "target", apply_a
     .stop_transform_file("TransformGroup not found in ITK H5 file.")
   }
 
-  mats <- list()
-  keys <- names(tg)
-  keys <- keys[order(suppressWarnings(as.integer(keys)), na.last = TRUE)]
-  for (k in keys) {
-    g <- tg[[k]]
-    if (!"TransformType" %in% names(g)) next
-    tt <- g[["TransformType"]]$read()
-    tt <- if (length(tt)) as.character(tt[[1]]) else ""
-    if (!grepl("AffineTransform", tt)) next
-    param_name <- .ants_h5_dataset_name(g, "TransformParameters")
-    fixed_name <- .ants_h5_dataset_name(g, "TransformFixedParameters")
-    if (is.na(param_name) || is.na(fixed_name)) next
-
-    p <- as.numeric(g[[param_name]]$read())
-    fixed <- as.numeric(g[[fixed_name]]$read())
-    if (length(p) < 12L) next
-    if (length(fixed) < 3L) fixed <- c(fixed, rep(0, 3L - length(fixed)))
-    mats[[length(mats) + 1L]] <- .itk_params_to_affine(p, fixed)
-  }
+  components <- .ants_h5_components(tg, "AffineTransform")
+  mats <- lapply(names(components), function(k) .ants_h5_affine(tg[[k]]))
 
   if (!length(mats)) {
     .stop_transform_file("No affine transforms found in ITK H5 file.")

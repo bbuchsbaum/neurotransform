@@ -20,6 +20,62 @@ test_that("get_linear_factory raises typed IO condition on bad format", {
   )
 })
 
+test_that("ITK text affine maps target RAS points through its LPS transform", {
+  path <- tempfile(fileext = ".txt")
+  on.exit(unlink(path))
+
+  A_lps <- matrix(c(
+    1.05, 0.10, 0.00,
+    0.00, 0.95, 0.20,
+    0.00, 0.00, 1.10
+  ), nrow = 3, byrow = TRUE)
+  translation <- c(3, -4, 2)
+  center <- c(11, -7, 5)
+  params <- c(as.numeric(t(A_lps)), translation)
+  writeLines(c(
+    "#Insight Transform File V1.0",
+    "Transform: AffineTransform_double_3_3",
+    paste("Parameters:", paste(params, collapse = " ")),
+    paste("FixedParameters:", paste(center, collapse = " "))
+  ), path)
+
+  morph <- read_linear_transform(path, format = "itk", source = "moving", target = "fixed")
+  points_ras <- rbind(c(2, -3, 4), c(-8, 5, 9))
+  flip3 <- diag(c(-1, -1, 1))
+  points_lps <- points_ras %*% flip3
+  expected_lps <- t(vapply(seq_len(nrow(points_lps)), function(i) {
+    as.numeric(A_lps %*% (points_lps[i, ] - center) + center + translation)
+  }, numeric(3)))
+  expected_ras <- expected_lps %*% flip3
+
+  expect_s4_class(morph, "Affine3DMorphism")
+  expect_equal(transform(morph, points_ras), expected_ras, tolerance = 1e-10)
+})
+
+test_that("ITK writer emits the same pullback in LPS coordinates", {
+  path <- tempfile(fileext = ".txt")
+  on.exit(unlink(path))
+
+  mat_ras <- diag(4)
+  mat_ras[1:3, 1:3] <- matrix(c(
+    1.0, 0.2, 0.0,
+    0.0, 0.9, 0.1,
+    0.0, 0.0, 1.1
+  ), nrow = 3, byrow = TRUE)
+  mat_ras[1:3, 4] <- c(2, -3, 4)
+  write_linear_transform(mat_ras, path, format = "itk")
+
+  lines <- readLines(path)
+  param_line <- grep("^Parameters:", lines, value = TRUE)
+  params <- scan(text = sub("^[^:]+:", "", param_line), quiet = TRUE)
+  written_lps <- diag(4)
+  written_lps[1:3, 1:3] <- matrix(params[1:9], 3, byrow = TRUE)
+  written_lps[1:3, 4] <- params[10:12]
+  flip <- diag(c(-1, -1, 1, 1))
+
+  expect_equal(written_lps, flip %*% mat_ras %*% flip, tolerance = 1e-9)
+})
+
 test_that("read/write_linear_transform_array supports FSL indexed files", {
   base <- tempfile(fileext = ".mat")
   on.exit(unlink(c(base, sprintf("%s.%03d", base, 0:4))))
@@ -79,6 +135,62 @@ test_that("read/write_linear_transform supports lta format", {
 
   expect_s4_class(morph, "Affine3DMorphism")
   expect_equal(morph@matrix, A, tolerance = 1e-8)
+})
+
+test_that("LTA type 0 uses embedded voxel geometries for pullback", {
+  path <- tempfile(fileext = ".lta")
+  on.exit(unlink(path))
+
+  vox_to_vox <- diag(4)
+  vox_to_vox[1:3, 1:3] <- matrix(c(
+    0.9, 0.1, 0.0,
+    0.0, 1.1, 0.1,
+    0.0, 0.0, 1.0
+  ), 3, byrow = TRUE)
+  vox_to_vox[1:3, 4] <- c(2, -1, 3)
+  matrix_lines <- apply(vox_to_vox, 1, paste, collapse = " ")
+  writeLines(c(
+    "type = 0",
+    "nxforms = 1",
+    "mean = 0 0 0",
+    "sigma = 1",
+    "1 4 4",
+    matrix_lines,
+    "src volume info",
+    "valid = 1",
+    "filename = source.nii.gz",
+    "volume = 10 12 14",
+    "voxelsize = 2 3 4",
+    "xras = 1 0 0",
+    "yras = 0 1 0",
+    "zras = 0 0 1",
+    "cras = 10 -5 2",
+    "dst volume info",
+    "valid = 1",
+    "filename = target.nii.gz",
+    "volume = 8 9 10",
+    "voxelsize = 1.5 2.5 3.5",
+    "xras = 1 0 0",
+    "yras = 0 1 0",
+    "zras = 0 0 1",
+    "cras = -4 6 8"
+  ), path)
+
+  volume_affine <- function(volume, voxelsize, cras) {
+    out <- diag(c(voxelsize, 1))
+    out[1:3, 4] <- cras - voxelsize * volume / 2
+    out
+  }
+  source_affine <- volume_affine(c(10, 12, 14), c(2, 3, 4), c(10, -5, 2))
+  target_affine <- volume_affine(c(8, 9, 10), c(1.5, 2.5, 3.5), c(-4, 6, 8))
+  expected <- source_affine %*% solve(vox_to_vox) %*% solve(target_affine)
+
+  morph <- read_linear_transform(path, format = "lta", source = "src", target = "dst")
+  target_points <- rbind(c(-4, 6, 8), c(2, -3, 11))
+  expected_points <- (cbind(target_points, 1) %*% t(expected))[, 1:3, drop = FALSE]
+
+  expect_equal(morph@matrix, expected, tolerance = 1e-10)
+  expect_equal(transform(morph, target_points), expected_points, tolerance = 1e-10)
 })
 
 test_that("read/write_linear_transform_array supports lta format", {

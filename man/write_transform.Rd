@@ -24,5 +24,6 @@ Invisibly returns \code{path}
 }
 \description{
 Convenience wrapper around \code{write_linear_transform()} for affine morphisms
-and raw 4x4 matrices. For \code{Warp3DMorphism}, writes a NIfTI vector field.
+and raw 4x4 matrices. For \code{Warp3DMorphism}, writes an LPS NIfTI vector
+field (ANTs-compatible when the output contains displacements).
 }

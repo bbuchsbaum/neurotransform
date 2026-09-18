@@ -104,7 +104,7 @@ read_linear_transform_array <- function(path,
     flip <- diag(c(-1, -1, 1, 1))
     tx <- lapply(mats_lps, function(itk_lps) {
       itk_ras <- flip %*% itk_lps %*% flip
-      Affine3DMorphism(source = source, target = target, matrix = solve(itk_ras))
+      Affine3DMorphism(source = source, target = target, matrix = itk_ras)
     })
     return(structure(list(format = format, transforms = tx, paths = path), class = "LinearTransformArray"))
   }
@@ -215,8 +215,7 @@ write_linear_transform_array <- function(x,
     }
     flip <- diag(c(-1, -1, 1, 1))
     mats_lps <- lapply(mats, function(mat) {
-      forward_ras <- solve(mat)
-      flip %*% forward_ras %*% flip
+      flip %*% mat %*% flip
     })
     .write_itk_affine_h5(mats_lps, path)
     return(invisible(path))
@@ -234,6 +233,7 @@ write_linear_transform_array <- function(x,
     write_x5(path, nodes)
     return(invisible(path))
   }
+
   if (identical(format, "afni")) {
     # One row of twelve numbers per matrix, in file order.
     conv <- .afni_conversion_args(list(...))
@@ -241,7 +241,6 @@ write_linear_transform_array <- function(x,
     afni_write_aff12(mats_rai, path)
     return(invisible(path))
   }
-
 
   if (!identical(format, "fsl")) {
     .stop_transform_io("Multi-transform array writing is currently supported only for format='fsl'.")

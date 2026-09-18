@@ -1,9 +1,16 @@
 # neurotransform 0.1.0
 
+- Fixed NIfTI warp export to write the ANTs 5D vector layout and intent code.
+- Reject unsupported H5 components and malformed affine/displacement data
+  instead of silently applying an incomplete transform.
 - Fixed cubic warp interpolation mixing adjacent vector components.
 - Corrected warp Jacobians to use the full grid orientation when converting
   voxel derivatives to physical RAS derivatives.
+- Added small, independently generated SimpleITK fixtures for both H5 orders,
+  centered affines, oblique vector fields, and image resampling.
 
+- Corrected ANTs/ITK affine direction, ANTs NIfTI/H5 LPS vector conversion,
+  H5 displacement parameter layout, and composite transform ordering.
 - Corrected AFNI affine axis conversion and the default direction of
   `3dAllineate -1Dmatrix_save` matrices.
 
@@ -27,3 +34,6 @@
   explicit anchor point is supplied.
 - `detect_fnirt_def_type()` and `warp_from_field()` no longer mutate the
   caller RNG state.
+
+- Explicit `ants_h5` loading now routes affine-only H5 files through the existing
+  ITK affine reader. Unsupported/ambiguous components still fail explicitly.

@@ -22,5 +22,8 @@ write_warp_field(
 Invisibly returns \code{path}
 }
 \description{
-Write a warp morphism as a NIfTI vector field
+Writes a 5D vector image (X, Y, Z, 1, 3), with intent code 1007 and LPS
+components. Displacement output is compatible with ANTs. Absolute deformation
+output contains source coordinates and must be explicitly read as such;
+ANTs expects displacements. Requires RNifti.
 }

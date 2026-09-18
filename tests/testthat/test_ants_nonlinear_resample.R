@@ -23,13 +23,13 @@ test_that("ANTs H5 warp transforms coordinates within bounds", {
 
   morph <- Warp3DMorphism("native", "mni", warp_path = warp_path, warp_type = "ants_h5")
 
-  # Test coordinates near the warp field center
-  # The warp has dims 97x115x97 with identity transform, so valid range is ~0-97mm
-  test_coords <- matrix(c(
-    45, 55, 45,   # Center of warp field
-    30, 40, 30,   # Another point in bounds
-    60, 70, 60    # Third point
-  ), ncol = 3, byrow = TRUE)
+  warp <- neurotransform:::load_warp_array(morph)
+  vox <- rbind(
+    floor(warp$dim / 2),
+    floor(warp$dim / 3),
+    floor(2 * warp$dim / 3)
+  )
+  test_coords <- (cbind(vox, 1) %*% t(warp$vox_to_world))[, 1:3, drop = FALSE]
 
   warped <- transform(morph, test_coords)
 
@@ -155,6 +155,45 @@ test_that("ANTs NIfTI warp transforms coordinates", {
   expect_true(all(abs(warped) < 300))
 })
 
+test_that("ANTs NIfTI displacement components convert from LPS to RAS", {
+  skip_if_not_installed("neuroim2")
+  path <- tempfile(fileext = ".nii.gz")
+  on.exit(unlink(path), add = TRUE)
+
+  field_lps <- array(0, dim = c(5, 5, 5, 3))
+  field_lps[, , , 1] <- 1
+  field_lps[, , , 2] <- 2
+  field_lps[, , , 3] <- 3
+  space <- neuroim2::NeuroSpace(dim(field_lps), trans = diag(4))
+  neuroim2::write_vec(neuroim2::DenseNeuroVec(field_lps, space), path, format = "nifti")
+
+  morph <- Warp3DMorphism("moving", "fixed", path, warp_type = "ants")
+  point <- matrix(c(2, 2, 2), nrow = 1)
+
+  expect_equal(transform(morph, point), point + matrix(c(-1, -2, 3), nrow = 1),
+               tolerance = 1e-7)
+})
+
+test_that("ANTs NIfTI warp matches retained SimpleITK point oracles", {
+  warp_path <- system.file("extdata/chris/ants/reg_1Warp.nii.gz",
+                           package = "neurotransform")
+  skip_if_not(file.exists(warp_path))
+
+  morph <- Warp3DMorphism("moving", "fixed", warp_path, warp_type = "ants")
+  points_ras <- rbind(
+    c(0, 0, 0),
+    c(-80, -100, -50),
+    c(50, 60, 20)
+  )
+  expected_ras <- rbind(
+    c(0.4570037569, -1.8435784895, 2.0230027791),
+    c(-80.7043913016, -100.6252680179, -50.2785666147),
+    c(51.4678156711, 60.3026160169, 21.1965898331)
+  )
+
+  expect_equal(transform(morph, points_ras), expected_ras, tolerance = 2e-5)
+})
+
 test_that("ants_h5_morphism returns MorphismPath with affine", {
   warp_path <- system.file("extdata/chris/ants/chris_to_mni_Composite.h5",
                            package = "neurotransform")
@@ -164,12 +203,40 @@ test_that("ants_h5_morphism returns MorphismPath with affine", {
   morph <- ants_h5_morphism(warp_path, source = "native", target = "mni",
                             apply_affine = TRUE)
 
-  # Should return a MorphismPath with warp + affine (in that order for pullback)
-  # The path is [warp, affine] so pullback applies: affine_pullback(warp_pullback(coords))
+  # Stored H5 components are preserved. MorphismPath, like ITK, evaluates them
+  # from last to first.
   expect_s4_class(morph, "MorphismPath")
   expect_equal(length(morph@morphisms), 2L)
-  expect_s4_class(morph@morphisms[[1]], "Warp3DMorphism")
-  expect_s4_class(morph@morphisms[[2]], "Affine3DMorphism")
+  expect_s4_class(morph@morphisms[[1]], "Affine3DMorphism")
+  expect_s4_class(morph@morphisms[[2]], "Warp3DMorphism")
+})
+
+test_that("ANTs H5 composites match retained SimpleITK point oracles", {
+  skip_if_not_installed("hdf5r")
+  forward_path <- system.file("extdata/chris/ants/reg_Composite.h5",
+                              package = "neurotransform")
+  inverse_path <- system.file("extdata/chris/ants/reg_InverseComposite.h5",
+                              package = "neurotransform")
+  skip_if_not(file.exists(forward_path))
+  skip_if_not(file.exists(inverse_path))
+
+  points_ras <- rbind(c(-10, 20, 30), c(90, -120, -70))
+  expected_forward_ras <- rbind(
+    c(-8.6304721092, 17.6258127526, 25.5654076920),
+    c(82.9201542089, -119.4691335359, -69.7328632238)
+  )
+  expected_inverse_ras <- rbind(
+    c(-11.2556239032, 22.7520343883, 34.8090080863),
+    c(97.7416223612, -120.3847724732, -70.3661393128)
+  )
+
+  forward <- ants_h5_morphism(forward_path, source = "moving", target = "fixed")
+  inverse <- ants_h5_morphism(inverse_path, source = "fixed", target = "moving")
+
+  expect_equal(transform(forward, points_ras), expected_forward_ras,
+               tolerance = 2e-5)
+  expect_equal(transform(inverse, points_ras), expected_inverse_ras,
+               tolerance = 2e-5)
 })
 
 test_that("ants_h5_morphism without affine returns single warp", {

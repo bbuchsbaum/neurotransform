@@ -19,28 +19,17 @@ warp list. Requires hdf5r.
 }
 \section{Coordinate System Notes}{
 
-ANTs/ITK documentation states that H5 files use LPS (Left-Posterior-Superior)
-coordinates. However, the actual coordinate handling depends on the warp's
-\code{vox_to_world} matrix:
-
-\itemize{
-\item If \code{vox_to_world} has negative diagonal elements, coordinates are in
-LPS physical space and explicit RAS<->LPS conversion may be needed.
-\item If \code{vox_to_world} is identity (origin=0, spacing=1, direction=I),
-coordinates are just voxel indices - no conversion is needed.
-}
-
-The \code{world_to_vox} matrix returned by this loader handles coordinate
-conversion automatically. Do NOT add explicit LPS flipping in the transform
-code - this will cause out-of-bounds voxel lookups when \code{vox_to_world} is
-identity.
+ANTs/ITK H5 domains and displacement components are stored in LPS physical
+coordinates. This loader converts both the grid mapping and vector components
+to the package's internal RAS convention before returning them.
 }
 
 \section{Embedded Affine}{
 
 ANTs composite H5 files often contain both a displacement field and an
-affine transform. The embedded affine is extracted, converted from LPS to
-RAS, and inverted for pullback semantics. Use \code{ants_h5_morphism()} with
+affine transform. The embedded affine is extracted and converted from LPS to
+RAS. ITK image-resampling transforms already use pullback semantics, so the
+affine is not inverted. Use \code{ants_h5_morphism()} with
 \code{apply_affine=TRUE} to get a MorphismPath that applies both transforms.
 }
 

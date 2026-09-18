@@ -111,26 +111,15 @@ load_warp_fsl_coef <- function(path) {
 #' warp list. Requires hdf5r.
 #'
 #' @section Coordinate System Notes:
-#' ANTs/ITK documentation states that H5 files use LPS (Left-Posterior-Superior)
-#' coordinates. However, the actual coordinate handling depends on the warp's
-#' `vox_to_world` matrix:
-#'
-#' \itemize{
-#'   \item If `vox_to_world` has negative diagonal elements, coordinates are in
-#'         LPS physical space and explicit RAS<->LPS conversion may be needed.
-#'   \item If `vox_to_world` is identity (origin=0, spacing=1, direction=I),
-#'         coordinates are just voxel indices - no conversion is needed.
-#' }
-#'
-#' The `world_to_vox` matrix returned by this loader handles coordinate
-#' conversion automatically. Do NOT add explicit LPS flipping in the transform
-#' code - this will cause out-of-bounds voxel lookups when `vox_to_world` is
-#' identity.
+#' ANTs/ITK H5 domains and displacement components are stored in LPS physical
+#' coordinates. This loader converts both the grid mapping and vector components
+#' to the package's internal RAS convention before returning them.
 #'
 #' @section Embedded Affine:
 #' ANTs composite H5 files often contain both a displacement field and an
-#' affine transform. The embedded affine is extracted, converted from LPS to
-#' RAS, and inverted for pullback semantics. Use `ants_h5_morphism()` with
+#' affine transform. The embedded affine is extracted and converted from LPS to
+#' RAS. ITK image-resampling transforms already use pullback semantics, so the
+#' affine is not inverted. Use `ants_h5_morphism()` with
 #' `apply_affine=TRUE` to get a MorphismPath that applies both transforms.
 #'
 #' @param path Path to ANTs H5 file
@@ -147,80 +136,80 @@ load_warp_ants_h5 <- function(path) {
   tg <- h5[["TransformGroup"]]
   if (is.null(tg)) stop("TransformGroup not found in H5 file: ", path)
 
-  # Find displacement transform entry
-  disp_key <- NULL
-  for (k in names(tg)) {
-    tt <- tg[[k]][["TransformType"]]$read()
-    if (grepl("DisplacementFieldTransform", tt)) {
-      disp_key <- k
-      break
-    }
+  transform_types <- .ants_h5_components(tg, c("AffineTransform", "DisplacementFieldTransform"))
+  keys <- names(transform_types)
+  disp_keys <- keys[grepl("DisplacementFieldTransform", transform_types)]
+  aff_keys <- keys[grepl("AffineTransform", transform_types)]
+  if (length(disp_keys) != 1L) {
+    stop("Expected exactly one DisplacementFieldTransform in H5, found ", length(disp_keys), ": ", path)
   }
-  if (is.null(disp_key)) stop("No DisplacementFieldTransform in H5: ", path)
+  if (length(aff_keys) > 1L) {
+    stop("Multiple embedded affine transforms are not yet supported: ", path)
+  }
+  disp_key <- disp_keys[[1L]]
 
   grp <- tg[[disp_key]]
   fixed <- .ants_h5_read_dataset(grp, "TransformFixedParameters")
   params <- .ants_h5_read_dataset(grp, "TransformParameters")
 
+  if (length(fixed) != 18L || any(!is.finite(fixed))) {
+    .stop_transform_file("Displacement fixed parameters must contain exactly 18 finite values.")
+  }
+  if (any(fixed[1:3] < 1 | fixed[1:3] > .Machine$integer.max | fixed[1:3] != floor(fixed[1:3]))) {
+    .stop_transform_file("Displacement grid size must contain positive integer dimensions.")
+  }
   size <- as.integer(fixed[1:3])
   origin <- fixed[4:6]
   spacing <- fixed[7:9]
   direction <- matrix(fixed[10:18], nrow = 3, byrow = TRUE)
+  if (any(spacing <= 0) || abs(det(direction)) < 1e-12) {
+    .stop_transform_file("Displacement grid must have positive spacing and an invertible direction matrix.")
+  }
 
-  # Build voxel-to-world in LPS (ITK/ANTs native coordinate system)
-  vox_to_world <- diag(4)
-  vox_to_world[1:3, 1:3] <- direction %*% diag(spacing)
-  vox_to_world[1:3, 4] <- origin
+  # Build the native LPS grid mapping, then convert its world coordinates to RAS.
+  vox_to_lps <- diag(4)
+  vox_to_lps[1:3, 1:3] <- direction %*% diag(spacing)
+  vox_to_lps[1:3, 4] <- origin
+  lps_to_ras <- diag(c(-1, -1, 1, 1))
+  vox_to_world <- lps_to_ras %*% vox_to_lps
   world_to_vox <- solve(vox_to_world)
 
-  # Parameters are stored voxel-major (dx, dy, dz) per voxel in LPS.
-  # C++ expects interleaved layout: [dx0, dy0, dz0, dx1, dy1, dz1, ...]
-  # ANTs H5 stores params as: X varies fastest, then Y, then Z, then component (planar)
-  # So we need to interleave.
+  # Parameters are stored voxel-major and interleaved in LPS:
+  # [dx0, dy0, dz0, dx1, dy1, dz1, ...].
   nvox <- prod(size)
-  arr <- numeric(3 * nvox)
-  idx <- seq_len(nvox)
-  arr[3L * (idx - 1L) + 1L] <- params[idx]              # X components
-  arr[3L * (idx - 1L) + 2L] <- params[nvox + idx]       # Y components
-  arr[3L * (idx - 1L) + 3L] <- params[2L * nvox + idx]  # Z components
+  if (length(params) != 3 * nvox || any(!is.finite(params))) {
+    .stop_transform_file("Displacement parameters must contain exactly 3 finite values per voxel.")
+  }
+  arr <- as.numeric(params[seq_len(3L * nvox)])
+  x_idx <- seq.int(1L, length(arr), by = 3L)
+  y_idx <- seq.int(2L, length(arr), by = 3L)
+  arr[x_idx] <- -arr[x_idx]
+  arr[y_idx] <- -arr[y_idx]
 
   # Optional affine in the composite
-  aff_key <- NULL
   aff_mat <- NULL
-  for (k in names(tg)) {
-    tt <- tg[[k]][["TransformType"]]$read()
-    if (grepl("AffineTransform", tt)) {
-      aff_key <- k; break
-    }
-  }
-  if (!is.null(aff_key)) {
+  if (length(aff_keys) == 1L) {
+    aff_key <- aff_keys[[1L]]
     grp_aff <- tg[[aff_key]]
-    p_aff <- .ants_h5_read_dataset(grp_aff, "TransformParameters")
-    fixed_aff <- .ants_h5_read_dataset(grp_aff, "TransformFixedParameters")
-    if (length(p_aff) >= 12) {
-      A <- matrix(p_aff[1:9], nrow = 3, byrow = TRUE)
-      tvec <- p_aff[10:12]
-      aff_mat_lps <- diag(4)
-      aff_mat_lps[1:3, 1:3] <- A
-      if (length(fixed_aff) == 3) {
-        aff_mat_lps[1:3, 4] <- tvec + fixed_aff - A %*% fixed_aff
-      } else {
-        aff_mat_lps[1:3, 4] <- tvec
-      }
-      # Convert from LPS (ITK convention) to RAS (neuroim2 convention)
-      flip <- diag(c(-1, -1, 1, 1))
-      aff_mat_ras <- flip %*% aff_mat_lps %*% flip
-      # ANTs stores forward transform; for pullback we need inverse
-      aff_mat <- solve(aff_mat_ras)
-    }
+    aff_mat_lps <- .ants_h5_affine(grp_aff)
+    aff_mat <- lps_to_ras %*% aff_mat_lps %*% lps_to_ras
   }
+
+  component_keys <- keys[grepl("AffineTransform|DisplacementFieldTransform", transform_types)]
+  component_types <- transform_types[match(component_keys, keys)]
+  transform_order <- ifelse(
+    grepl("AffineTransform", component_types),
+    "affine",
+    "warp"
+  )
 
   list(
     array = arr,
     dim = size,
     world_to_vox = world_to_vox,
     vox_to_world = vox_to_world,
-    affine = aff_mat
+    affine = aff_mat,
+    transform_order = unname(transform_order)
   )
 }
 
@@ -321,12 +310,12 @@ load_warp_array <- function(morphism, loader = NULL, cache_env = NULL) {
   }
   value <- loader(morphism@warp_path)
 
-  # AFNI 3dQwarp stores displacements in DICOM/LPS convention.
-
-  # LPS to RAS: negate X and Y displacement components.
+  # ANTs and AFNI NIfTI warps store vector components in LPS/DICOM
+  # coordinates even though neuroim2 exposes the NIfTI grid in RAS.
+  # LPS to RAS negates X and Y displacement components.
   # Do this at load time so all code paths (transform(), resample_volume(), etc.)
   # get RAS-convention displacements without needing special handling.
-  if (morphism@warp_type == "afni") {
+  if (morphism@warp_type %in% c("ants", "afni")) {
     # Array is stored as (X, Y, Z, 3) flattened - each voxel has 3 contiguous values
     # Layout: [dx0, dy0, dz0, dx1, dy1, dz1, ...]
     # To negate X: indices 1, 4, 7, ... (seq from 1 by 3)

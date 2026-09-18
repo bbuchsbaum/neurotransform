@@ -80,8 +80,9 @@ test_that("write_transform dispatches Warp3DMorphism exports", {
   vec <- neuroim2::read_vec(tmp)
   arr <- as.array(vec)
   expect_equal(dim(arr), c(4, 4, 4, 3))
-  # First voxel (0,0,0) deformation should be source coordinate (1,0,0).
-  expect_equal(arr[1, 1, 1, 1], 1, tolerance = 1e-6)
+  # ANTs stores vector components in LPS, so RAS source coordinate (1,0,0)
+  # is written as (-1,0,0).
+  expect_equal(arr[1, 1, 1, 1], -1, tolerance = 1e-6)
   expect_equal(arr[1, 1, 1, 2], 0, tolerance = 1e-6)
   expect_equal(arr[1, 1, 1, 3], 0, tolerance = 1e-6)
 })

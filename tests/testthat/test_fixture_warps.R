@@ -41,9 +41,9 @@ test_that("warp jacobian uses fixture gradients", {
   J <- jacobian(morph, coords)
   Jmat <- J@values[1, , ]
 
-  expect_equal(diag(Jmat), c(1.5, 0.75, 1.1), tolerance = 1e-2)
+  expect_equal(diag(Jmat), c(0.5, 1.25, 1.1), tolerance = 1e-2)
   dets <- jacobian_det(morph, coords)
-  expect_equal(as.numeric(dets), 1.2375, tolerance = 1e-2)
+  expect_equal(as.numeric(dets), 0.6875, tolerance = 1e-2)
 })
 
 test_that("warp_method selects cubic sampler and jacobian path", {

@@ -22,7 +22,9 @@ ants_h5_morphism(
 MorphismPath combining warp and affine. If FALSE, return only the warp.}
 }
 \value{
-Warp3DMorphism (if no affine or apply_affine=FALSE) or MorphismPath
+Warp3DMorphism (if no affine or apply_affine=FALSE), MorphismPath,
+or Affine3DMorphism for an affine-only H5 file. For an affine-only file,
+\code{apply_affine=FALSE} is an error because there is no displacement field.
 }
 \description{
 Creates a morphism (or MorphismPath) from an ANTs composite H5 transform file.
@@ -30,16 +32,9 @@ These files typically contain both a displacement field and an affine transform.
 }
 \section{Pullback Ordering}{
 
-When \code{apply_affine=TRUE}, returns a MorphismPath ordered as \verb{[warp, affine]}.
-This ordering is critical for correct pullback (resampling) semantics:
-
-\itemize{
-\item MorphismPath applies transforms right-to-left for pullback
-\item \verb{[warp, affine]} means: \code{affine_pullback(warp_pullback(coords))}
-\item Target coords -> warp lookup -> affine transform -> source coords
-}
-
-The ANTs forward transform is "affine then warp", so pullback (inverse) is
-"inverse_warp then inverse_affine" - hence the \verb{[warp, affine]} order.
+When \code{apply_affine=TRUE}, the H5 component order is preserved in the returned
+\code{MorphismPath}. Both ITK composite transforms and \code{MorphismPath} evaluate the
+stored components from last to first, so preserving the order reproduces ITK
+point-transform semantics.
 }
 
