@@ -20,3 +20,23 @@ coordinate cancellation, deterministic ties and serialized sampler rebuilding.
 Distance is reconstructed from original convex corner coordinates and clamped
 to their AABB so floating-point pruning bounds remain conservative. Full-size
 performance and S4-S8 qualification remain open.
+
+S3 performance: the optimized build constructed full-template plans in under
+1.4 seconds. The repeat with authorized macOS counters measured 493–621 MiB
+peak process RSS, below the 1 GiB budget (`s4-measured/receipt.json`).
+
+S4: all targets in both directions and hemispheres were compared on eleven
+bounded fields. Row sums and source-face permutation invariance pass. Three
+routes fail the prospectively fixed 5e-5 maximum-error gate (max 1.64334e-4).
+The first attempt also failed memory instrumentation because sandboxed
+`/usr/bin/time -l` could not read kern.clockrate; the measured repeat resolves
+that instrumentation failure, not the numerical failures. Both receipts remain.
+
+Independent local least-squares projection at all 17 threshold-failing targets
+(and the worst target on the passing route) agrees with native weights within
+1.58e-14. All faces with bounding-box distance below a nearest-vertex upper
+bound were considered. Workbench impulse outputs use only an edge at all 18
+queries, omitting a small positive third native weight. Repeating the independent
+face/edge comparison after float32 radius scaling still finds the interior face
+closer. These diagnosed differences do not establish Workbench parity: the
+original gate remains failed. No small weights are silently removed.

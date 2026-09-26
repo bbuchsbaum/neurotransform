@@ -34,3 +34,4 @@ tools/visual_qa/__pycache__/
 inst/extdata/fsl/highres*
 inst/extdata/fsl/standard2highres*
 .ruff_cache/
+tools/__pycache__/

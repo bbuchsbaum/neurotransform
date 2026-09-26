@@ -61,3 +61,20 @@ test_that("surface samplers rebuild their immutable index after serialization", 
   expect_equal(restored@evaluate(q),sampler@evaluate(q))
   expect_false(neurotransform:::cpp_surface_index_valid(NULL))
 })
+
+test_that('subnormal squared distances cannot falsely prune tied planes', {
+  for (s in c(1e-162,1e-200)) {
+    vertices <- do.call(rbind,lapply(seq_len(10),function(i)
+      cbind(rbind(c(0,0),c(1,0),c(0,1)),if(i%%2) 0 else 2*s)))
+    faces <- matrix(seq_len(nrow(vertices))-1L,ncol=3,byrow=TRUE)
+    query <- matrix(c(.25,.25,s),1)
+    for (f in list(faces,faces[nrow(faces):1,,drop=FALSE])) {
+      indexed <- cpp_barycentric_weights(query,vertices,f,indexed=TRUE)
+      exhaustive <- cpp_barycentric_weights(query,vertices,f,indexed=FALSE)
+      expect_identical(indexed$cols,exhaustive$cols)
+      expect_identical(indexed$vals,exhaustive$vals)
+      expect_identical(indexed$distance,exhaustive$distance)
+      expect_identical(indexed$face,exhaustive$face)
+    }
+  }
+})
