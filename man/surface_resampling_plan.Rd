@@ -7,12 +7,15 @@
 surface_resampling_plan(
   reference,
   moving,
-  method = c("barycentric", "nearest"),
+  method = c("barycentric", "nearest", "adaptive_bary_area"),
   spherical = TRUE,
   radius = 100,
   source_mask = NULL,
   target_mask = NULL,
-  outside = NULL
+  outside = NULL,
+  source_areas = NULL,
+  target_areas = NULL,
+  experimental = FALSE
 )
 }
 \arguments{
@@ -20,7 +23,7 @@ surface_resampling_plan(
 
 \item{moving}{Moving/input surface (\code{SurfaceMesh} or surface-like object)}
 
-\item{method}{Interpolation method: \code{"barycentric"} or \code{"nearest"}}
+\item{method}{Interpolation method: \code{"barycentric"}, \code{"nearest"}, or experimental \code{"adaptive_bary_area"}}
 
 \item{spherical}{Logical; if \code{TRUE}, require both meshes to be approximately spherical}
 
@@ -33,6 +36,12 @@ include vertices. Exclusion is applied before row normalization.}
 
 \item{outside}{Uncovered-query policy: \code{"error"}, \code{"missing"}, or \code{"nearest"}.
 Defaults to \code{"error"} for spherical and \code{"nearest"} for nonspherical meshes.}
+
+\item{source_areas, target_areas}{Geometry-bound \code{SurfaceVertexAreas} objects,
+required for adaptive area resampling, with matching area units.}
+
+\item{experimental}{Explicitly opt into the adaptive area implementation.
+Its full-template Workbench parity gate has not passed.}
 }
 \value{
 A \code{SurfaceResamplingPlan} object

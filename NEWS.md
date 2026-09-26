@@ -1,3 +1,23 @@
+# neurotransform 0.2.0
+
+- Unified surface sampling and plan construction around an exact indexed
+  closest-triangle search. Added reusable, serializable sampler indexes and
+  structural spherical-mesh validation with defect diagnostics.
+- Added separate source/target ROIs, explicit unsupported-query policies,
+  nonfinite-data propagation/omission/error policies, and coverage diagnostics.
+  Unsupported outputs are unavailable rather than numerical zero.
+- Added integer label voting with preserved label tables and deterministic ties.
+- Added fixed-operator Euclidean adjoints and geometry-verified reverse plans.
+  Deprecated `inverse=TRUE`; its legacy transpose-then-normalize behavior remains
+  available without new data policies or masks.
+- Added experimental `adaptive_bary_area` interpolation with geometry-bound,
+  positive anatomical areas and provenance. Effective area diagnostics follow
+  row normalization and column-specific missing-data omission.
+- Full-template Workbench comparisons retain near-edge disagreements above the
+  declared tolerance. Adaptive interpolation requires `experimental=TRUE`;
+  downstream production admission is not implied by these additions.
+- Added a runnable surface-resampling vignette and independent numerical fixtures.
+
 # neurotransform 0.1.0
 
 - Fixed barycentric weight construction selecting distant or opposite-side

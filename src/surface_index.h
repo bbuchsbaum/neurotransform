@@ -99,6 +99,12 @@ class SurfaceIndex {
     double v=(t.d11*d20-t.d01*d21)/t.denom;
     double w=(t.d00*d21-t.d01*d20)/t.denom;
     Point3 bary={{1-v-w,v,w}};
+    // An exactly coincident query has an exact one-vertex representation. This
+    // preserves structural zeros (important for categorical and adaptive support)
+    // instead of introducing roundoff contributors through the Gram solve.
+    for (int a=0;a<3;++a) if (pt==t.vertices[a]) {
+      bary={{0,0,0}};bary[a]=1;break;
+    }
     const double tol=64*std::numeric_limits<double>::epsilon();
     if (bary[0]>=-tol && bary[1]>=-tol && bary[2]>=-tol) {
       double sum=0;

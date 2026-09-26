@@ -1,6 +1,6 @@
 Package: neurotransform
 Title: Geometric Transforms for Neuroimaging Data
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Brad", "Buchsbaum", , "brad.buchsbaum@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-8268-1465"))
@@ -67,3 +67,4 @@ Collate:
     'deformation_field.R'
     'resampling_plan.R'
     'surface_resampling.R'
+    'surface_area.R'

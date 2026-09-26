@@ -47,6 +47,10 @@ Other columns, such as names and colors, are preserved unchanged.}
 \value{
 Vector/matrix, or a list when \code{details=TRUE}. Diagnostics include raw
 source and finite-data weight mass before normalization and target masking.
+Adaptive plans also report \code{source_roi_target_area} before target masking.
+\code{effective_target_area} is available only for row normalization, and is
+column specific under omission. With finite continuous data and no target
+exclusion it gives the area identity described in the surface vignette.
 }
 \description{
 Geometry, source ROI mass and finite-data mass are distinct. Unsupported or

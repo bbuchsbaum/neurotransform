@@ -54,24 +54,44 @@ validate_surface_mesh <- function(mesh, spherical = TRUE, error = FALSE,
 #' @param target_mask Optional output ROI, applied after normalization.
 #' @param outside Uncovered-query policy: `"error"`, `"missing"`, or `"nearest"`.
 #'   Defaults to `"error"` for spherical and `"nearest"` for nonspherical meshes.
-#' @param method Interpolation method: `"barycentric"` or `"nearest"`
+#' @param method Interpolation method: `"barycentric"`, `"nearest"`, or experimental `"adaptive_bary_area"`
 #' @param spherical Logical; if `TRUE`, require both meshes to be approximately spherical
 #' @param radius Radius used when `spherical=TRUE` (both meshes are rescaled to this radius)
+#' @param source_areas,target_areas Geometry-bound `SurfaceVertexAreas` objects,
+#'   required for adaptive area resampling, with matching area units.
+#' @param experimental Explicitly opt into the adaptive area implementation.
+#'   Its full-template Workbench parity gate has not passed.
 #' @return A `SurfaceResamplingPlan` object
 #' @export
 surface_resampling_plan <- function(reference, moving,
-                                    method = c("barycentric", "nearest"),
+                                    method = c("barycentric", "nearest", "adaptive_bary_area"),
                                     spherical = TRUE,
                                     radius = 100, source_mask = NULL,
-                                    target_mask = NULL, outside = NULL) {
+                                    target_mask = NULL, outside = NULL,
+                                    source_areas = NULL, target_areas = NULL,
+                                    experimental = FALSE) {
   if (is.null(outside)) outside <- if (isTRUE(spherical)) "error" else "nearest"
   outside <- match.arg(outside, c("error", "missing", "nearest"))
   method <- match.arg(method)
+  adaptive <- method == "adaptive_bary_area"
+  if (adaptive && !isTRUE(experimental))
+    stop("adaptive area resampling is unqualified; explicit experimental=TRUE is required")
+  if (adaptive && outside != "error") stop("adaptive area resampling requires outside='error'")
+  if (adaptive && !isTRUE(spherical)) stop("adaptive area resampling requires spherical registration meshes")
+  if (!adaptive && (!is.null(source_areas) || !is.null(target_areas)))
+    stop("area inputs are only used by method='adaptive_bary_area'")
 
   ref <- if (inherits(reference, "SurfaceMesh")) reference else surface_mesh(reference)
   mov <- if (inherits(moving, "SurfaceMesh")) moving else surface_mesh(moving)
 
   geometry <- list(reference = .surface_identity(ref), moving = .surface_identity(mov))
+  area <- NULL
+  if (adaptive) {
+    if (!nrow(ref@faces)) stop("adaptive area resampling requires reference triangle faces")
+    source_areas <- .surface_check_areas(source_areas, geometry$moving, nrow(mov@coords), "source_areas")
+    target_areas <- .surface_check_areas(target_areas, geometry$reference, nrow(ref@coords), "target_areas")
+    if (!identical(source_areas$units, target_areas$units)) stop("source and target area units must match")
+  }
   source_mask <- .surface_mask(source_mask, nrow(mov@coords), "source_mask")
   target_mask <- .surface_mask(target_mask, nrow(ref@coords), "target_mask")
 
@@ -103,6 +123,16 @@ surface_resampling_plan <- function(reference, moving,
 
     w <- cpp_barycentric_weights(ref@coords, mov@coords, mov@faces,
                                  closest = isTRUE(spherical))
+    if (adaptive) {
+      backward <- cpp_barycentric_weights(mov@coords, ref@coords, ref@faces, closest = TRUE)
+      weights <- .surface_adaptive_weights(w, backward, n_ref, n_mov, source_areas$values, target_areas$values)
+      area <- list(source=source_areas, target=target_areas,
+                   target_measure=weights$target_measure, represented_source=weights$represented_source,
+                   use_reverse=weights$use_reverse)
+      weights$timing <- lapply(names(w$timing), function(name) w$timing[[name]] + backward$timing[[name]])
+      names(weights$timing) <- names(w$timing)
+      w <- weights
+    }
     rows <- as.integer(w$rows)
     cols <- as.integer(w$cols)
     vals <- as.numeric(w$vals)
@@ -111,7 +141,7 @@ surface_resampling_plan <- function(reference, moving,
     # Preserve triangle support separately from any explicitly allowed fallback.
     covered <- rep(FALSE, n_ref)
     if (length(rows) > 0L) covered[rows] <- TRUE
-    support[covered] <- "triangle"
+    support[covered] <- if (adaptive) "adaptive" else "triangle"
     missing <- which(!covered)
     if (length(missing) > 0L) {
       if (outside == "error") stop("resampling has queries without valid triangle support")
@@ -139,7 +169,9 @@ surface_resampling_plan <- function(reference, moving,
       support = support,
       source_mask = source_mask,
       target_mask = target_mask,
-      outside = outside
+      outside = outside,
+      area = area,
+      qualification = if (adaptive) "experimental" else "ordinary"
     ),
     class = "SurfaceResamplingPlan"
   )
@@ -174,6 +206,10 @@ surface_resampling_plan <- function(reference, moving,
 #' @param details Return values and per-column coverage diagnostics.
 #' @return Vector/matrix, or a list when `details=TRUE`. Diagnostics include raw
 #'   source and finite-data weight mass before normalization and target masking.
+#'   Adaptive plans also report `source_roi_target_area` before target masking.
+#'   `effective_target_area` is available only for row normalization, and is
+#'   column specific under omission. With finite continuous data and no target
+#'   exclusion it gives the area identity described in the surface vignette.
 #' @export
 apply_surface_resampling <- function(plan, x, inverse = FALSE,
                                      normalize = c("element", "sum", "none"),
@@ -249,10 +285,15 @@ apply_surface_resampling <- function(plan, x, inverse = FALSE,
     storage.mode(values) <- "integer"
     if (!is.null(label_table)) attr(values, "label_table") <- label_table
   }
+  effective_area <- NULL
+  roi_area <- if (!is.null(plan$area)) plan$area$target_measure * source_mass else NULL
+  if (!is.null(plan$area) && normalize == "element")
+    effective_area <- if (na_policy == "omit") shape(finite_mass * plan$area$target_measure) else roi_area
   if (details) return(list(values = values, support = op$support,
-    geometric_support = op$support == "triangle", source_weight_mass = source_mass,
+    geometric_support = op$support %in% c("triangle", "adaptive"), source_weight_mass = source_mass,
     finite_weight_mass = shape(finite_mass), target_mask = op$target_mask,
-    available = shape(status == "available"), status = shape(status), label_table = label_table))
+    available = shape(status == "available"), status = shape(status), label_table = label_table,
+    effective_target_area = effective_area, source_roi_target_area = roi_area))
   if (na_policy == "omit") attr(values, "retained_weight_mass") <- shape(finite_mass)
   values
 }
@@ -419,5 +460,8 @@ reverse_surface_resampling_plan <- function(plan, reference, moving) {
     stop("reference and moving must match the plan's recorded ordered geometries")
   surface_resampling_plan(mov, ref, method = plan$method,
     spherical = plan$spherical, radius = plan$radius,
-    source_mask = plan$target_mask, target_mask = plan$source_mask, outside = plan$outside)
+    source_mask = plan$target_mask, target_mask = plan$source_mask, outside = plan$outside,
+    source_areas = if (!is.null(plan$area)) plan$area$target else NULL,
+    target_areas = if (!is.null(plan$area)) plan$area$source else NULL,
+    experimental = identical(plan$qualification, "experimental"))
 }

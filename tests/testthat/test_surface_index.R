@@ -78,3 +78,13 @@ test_that('subnormal squared distances cannot falsely prune tied planes', {
     }
   }
 })
+
+test_that('exact source vertices preserve structural zero weights', {
+  v <- rbind(c(1,1,1),c(-1,-1,1),c(-1,1,-1),c(1,-1,-1))
+  m <- surface_mesh(v,matrix(c(1,2,3,1,4,2,1,3,4,2,4,3),4,3,byrow=TRUE))
+  p <- surface_resampling_plan(m,m)
+  expect_identical(p$rows,1:4)
+  expect_identical(p$cols,1:4)
+  expect_identical(p$vals,rep(1,4))
+  expect_equal(apply_surface_resampling(p,c(NA,2,3,4)),c(NA,2,3,4))
+})

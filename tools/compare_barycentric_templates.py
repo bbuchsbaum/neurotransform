@@ -35,6 +35,8 @@ def main():
                    revision=subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
                    version=subprocess.check_output([str(wb), "-version"], text=True),
                    binary_sha256=sha(wb), generator_sha256=sha(__file__), cases=[])
+    manifest_path = os.environ.get("NEUROTRANSFORM_BUILD_MANIFEST")
+    if manifest_path: receipt["build_manifest"] = json.loads(Path(manifest_path).read_text())
     script = out / "compare.R"
     script.write_text('''
 library(neurotransform)

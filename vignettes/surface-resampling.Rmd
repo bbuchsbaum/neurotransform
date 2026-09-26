@@ -1,0 +1,211 @@
+---
+title: "Resampling surface data with explicit coverage"
+author: "Brad Buchsbaum"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Resampling surface data with explicit coverage}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", message=FALSE)
+library(neurotransform)
+```
+
+A surface plan maps values on a moving mesh to vertices of a reference mesh.
+Build the geometry once, then apply it to vectors or matrices whose rows are
+moving vertices. This example uses an octahedron and two query directions.
+
+```{r ordinary}
+vertices <- rbind(c(1,0,0), c(-1,0,0), c(0,1,0), c(0,-1,0),
+                  c(0,0,1), c(0,0,-1))
+faces <- rbind(c(1,3,5), c(3,2,5), c(2,4,5), c(4,1,5),
+               c(3,1,6), c(2,3,6), c(4,2,6), c(1,4,6))
+moving <- surface_mesh(vertices, faces)
+query <- rbind(c(1,1,1)/sqrt(3), c(1,1,0)/sqrt(2))
+reference <- surface_mesh(query)
+plan <- surface_resampling_plan(reference, moving)
+z <- vertices[,3]
+apply_surface_resampling(plan, z)
+```
+
+The first result is one third: the positive-octant face has equal weights on
+its three corners. The second query lies on an edge whose endpoints both have
+value zero. Reordering faces leaves the interpolation unchanged.
+
+```{r check-ordinary, include=FALSE}
+stopifnot(isTRUE(all.equal(apply_surface_resampling(plan,z),c(1/3,0),tolerance=1e-12)))
+```
+
+Spherical plans normalize both geometries to a common radius about the origin
+and select the closest point on the triangular mesh, including edges and
+vertices. They require a closed, connected spherical source with an unambiguous
+radial mapping. `validate_surface_mesh()` reports defects without repairing
+input. A reference consisting only of query directions may omit faces.
+
+For open, nonspherical surfaces, set `spherical=FALSE`. Barycentric plans then
+use interior orthogonal projections; `outside="error"`, `"missing"`, and
+`"nearest"` choose how uncovered queries are handled. The nonspherical default
+is nearest-vertex fallback, which is identified separately in coverage details.
+Direct `surface_sampler()` calls expose `projection="interior"` or `"closest"`.
+
+## Distinguish missing values from zero
+
+By default, a nonfinite value with positive weight makes that output unavailable.
+A zero-weight missing value has no effect. Omission explicitly renormalizes the
+remaining finite weights and reports how much raw weight remained.
+
+```{r missing}
+with_missing <- z
+with_missing[5] <- NA_real_
+apply_surface_resampling(plan, with_missing)
+omitted <- apply_surface_resampling(plan, with_missing,
+                                    na_policy="omit", details=TRUE)
+data.frame(value=omitted$values,
+           retained_weight=omitted$finite_weight_mass,
+           available=omitted$available)
+```
+
+Omission returns zero at the first query, based only on the two equatorial
+vertices; its retained weight is two thirds. An all-missing neighborhood returns
+`NA`, not zero. With matrix data these diagnostics are column specific. Use
+`na_policy="error"` to reject contributing nonfinite values. Omission requires
+row normalization (`normalize="element"`).
+
+Source and target ROIs have different roles. Positive source-mask entries
+include vertices before row normalization; a target mask excludes outputs
+after correspondence and normalization have been computed.
+
+```{r masks}
+masked_plan <- surface_resampling_plan(
+  reference, moving,
+  source_mask=c(1,1,1,1,0,0), target_mask=c(TRUE,FALSE)
+)
+coverage <- apply_surface_resampling(masked_plan, z, details=TRUE)
+data.frame(value=coverage$values, geometry=coverage$geometric_support,
+           source_weight=coverage$source_weight_mass, status=coverage$status)
+```
+
+Both queries have geometric support. The first keeps two thirds of its original
+source weight and produces a supported zero. The second is unavailable because
+the target mask excludes it. A topological hole in a spherical mesh is a geometry
+error, not an ROI.
+
+## Resample integer labels by voting
+
+Labels use integer keys and an optional table of names or colors. Aggregate
+voting sums weights for each key; largest voting chooses a single source vertex.
+Neither policy averages the numeric IDs.
+
+```{r labels}
+keys <- c(10L,20L,10L,20L,30L,40L)
+label_table <- data.frame(key=c(0L,10L,20L,30L,40L),
+                          name=c("unassigned","A","B","C","D"))
+apply_surface_resampling(plan, keys, data_type="label",
+                         label_table=label_table, unassigned=0L)
+```
+
+Aggregate ties choose the smallest label key. Largest-weight ties choose the
+smallest source vertex index. These are deterministic library conventions;
+Workbench can resolve ties differently. Set `unassigned` explicitly when another
+application uses a particular missing-label key, and include it in the label
+table. The default is `NA_integer_`.
+
+## Separate adjoint application from reverse resampling
+
+For a fixed forward matrix `W`, `apply_surface_adjoint()` applies its Euclidean
+transpose, including the forward normalization and fixed masks. It does not
+renormalize the transpose.
+
+```{r adjoint}
+y <- c(2,1)
+c(forward_inner_product=sum(apply_surface_resampling(plan,z)*y),
+  adjoint_inner_product=sum(z*apply_surface_adjoint(plan,y)))
+```
+
+An unsupported source column has algebraic adjoint value zero; `details=TRUE`
+identifies those columns. Missing-data omission changes weights with the data
+and is not this fixed adjoint. `normalize="sum"` conserves represented discrete
+source mass before target exclusion; it does not perform anatomical area
+correction.
+
+Reverse geometric interpolation requires faces on the new source. Supply both
+original geometries so their recorded identities can be checked.
+
+```{r reverse}
+angle <- .23
+rotation <- rbind(c(cos(angle),-sin(angle),0),
+                  c(sin(angle),cos(angle),0),c(0,0,1))
+rotated_vertices <- vertices %*% rotation
+rotated <- surface_mesh(rotated_vertices, faces)
+forward_plan <- surface_resampling_plan(rotated, moving)
+reverse_plan <- reverse_surface_resampling_plan(forward_plan, rotated, moving)
+reverse_plan
+```
+
+A rebuilt reverse plan generally differs from a transpose and cannot recover
+information lost through downsampling. `inverse=TRUE` is deprecated and retains
+its legacy transpose-then-normalize behavior; it rejects new policies and fixed
+masks rather than silently changing their interpretation.
+
+## Experimental adaptive area interpolation
+
+`method="adaptive_bary_area"` implements forward/reverse support selection and
+anatomical area correction as a separate method. It requires
+`experimental=TRUE`: the full-template Workbench parity gate has not passed.
+There is no substitution of ordinary barycentric interpolation when it fails.
+
+Bind areas to the exact registration geometry using `surface_vertex_areas()`.
+Provide positive measured vertex areas with explicit provenance, or a
+corresponding anatomical mesh with the same ordered faces. The following
+ellipsoids are synthetic illustrations, not anatomical reference data.
+
+```{r adaptive}
+source_anatomy <- surface_mesh(vertices %*% diag(c(20,30,40)), faces)
+target_anatomy <- surface_mesh(rotated_vertices %*% diag(c(20,30,40)), faces)
+source_areas <- surface_vertex_areas(moving, anatomical=source_anatomy)
+target_areas <- surface_vertex_areas(rotated, anatomical=target_anatomy)
+adaptive <- surface_resampling_plan(
+  rotated, moving, method="adaptive_bary_area",
+  source_areas=source_areas, target_areas=target_areas, experimental=TRUE
+)
+result <- apply_surface_resampling(adaptive, 1+z, details=TRUE)
+c(source_integral=sum(source_areas$values*(1+z)),
+  effective_target_integral=sum(result$effective_target_area[result$available] *
+                               result$values[result$available]))
+```
+
+Areas must be finite and strictly positive, with matching units on both sides.
+Zero areas are rejected. Normalized spherical areas are never substituted
+implicitly for anatomical areas.
+
+The area identity uses an **effective target measure**, not generally the
+supplied target vertex areas. With row normalization and no target exclusion,
+it preserves the integral over included, represented source values. Under
+omission, the effective measure is column specific and the identity includes
+only finite source values; filter unavailable rows before multiplying by their
+zero measure. `effective_target_area` is unavailable for `normalize="sum"` or
+`"none"`. `source_roi_target_area` remains a diagnostic before data omission or
+target exclusion. No conservation of numeric label IDs is claimed.
+
+## Qualification boundaries
+
+| Capability | Evidence and current boundary |
+|---|---|
+| Ordinary continuous interpolation | Analytic opposite-side, boundary and permutation tests; independent small Workbench basis fixtures; exact indexed/exhaustive comparisons. Full-template strict Workbench parity remains incomplete. |
+| ROI, missing data and categorical voting | Independent policy fixtures and small Workbench mask/non-tied-label comparisons. Tie rules and missing-label keys must be mapped explicitly. |
+| Reverse plans and Euclidean adjoints | Independent dense-matrix identities and rebuilt geometric reverse tests. Neither recovers discarded information. |
+| Adaptive area interpolation | Analytic area/ROI identities and unequal-area Workbench basis fixtures. Experimental until full-template gates pass. |
+
+The full ordinary-template run found rare near-edge differences above its
+predeclared `5e-5` maximum-error threshold. Independent closest-point calculations
+support the native result at those queries; Workbench selects an edge and omits
+a small positive third weight. The failed threshold is retained. Passing a
+constant field or a small fixture does not qualify every production route.
+
+Versioned receipts and the method capability matrix are in the repository's
+`output/surface-completion/` directory. Workbench is an optional comparator, not
+a runtime dependency. Its [metric](https://www.humanconnectome.org/software/workbench-command/-metric-resample)
+and [label](https://www.humanconnectome.org/software/workbench-command/-label-resample)
+commands define the external comparison methods.

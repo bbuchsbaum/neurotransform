@@ -106,6 +106,8 @@ The package also includes helpers for the common convention mismatches across:
 
 ## Documentation
 
+- Surface resampling, coverage and operator contracts: [vignettes/surface-resampling.Rmd](./vignettes/surface-resampling.Rmd)
+- Surface qualification receipts: [output/surface-completion/progress.md](./output/surface-completion/progress.md)
 - Intro vignette: [vignettes/introduction.Rmd](./vignettes/introduction.Rmd)
 - Developer notes: [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md)
 - Design notes: [Vision.md](./Vision.md)
