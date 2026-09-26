@@ -31,15 +31,20 @@ cpp_apply_affine_chain <- function(coords, matrices) {
 
 #' Compute barycentric interpolation weights for surface mesh
 #'
-#' Projects points onto a triangular mesh and computes barycentric weights.
+#' Finds the closest point on the mesh, including edge and vertex projections.
+#' With `closest=FALSE`, only interior orthogonal projections are considered.
+#' Degenerate faces are ignored; unsupported queries have no triplets.
+#' This is Euclidean projection, not radial ray intersection.
 #'
 #' @param coords Numeric matrix (N x 3) of query points
 #' @param vertices Numeric matrix (V x 3) of mesh vertices
 #' @param faces Integer matrix (F x 3) of face indices (0-based)
+#' @param closest Include closest edge/vertex points when the plane projection
+#'   is outside a triangle (used for spherical resampling).
 #' @return List with rows, cols, vals for sparse matrix construction
 #' @keywords internal
-cpp_barycentric_weights <- function(coords, vertices, faces) {
-    .Call(`_neurotransform_cpp_barycentric_weights`, coords, vertices, faces)
+cpp_barycentric_weights <- function(coords, vertices, faces, closest = TRUE) {
+    .Call(`_neurotransform_cpp_barycentric_weights`, coords, vertices, faces, closest)
 }
 
 #' Compute Jacobian matrices for a warp field at given coordinates

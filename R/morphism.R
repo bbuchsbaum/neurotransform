@@ -595,7 +595,7 @@ setMethod("transform", "SurfToSurfMorphism", function(morphism, coords) {
     stop("SurfToSurfMorphism mapping='barycentric' requires faces")
   }
 
-  w <- cpp_barycentric_weights(coords, tgt_v, faces0)
+  w <- cpp_barycentric_weights(coords, tgt_v, faces0, closest = FALSE)
   out <- matrix(NA_real_, nrow = nrow(coords), ncol = 3)
   if (length(w$rows) == 0) return(out)
 

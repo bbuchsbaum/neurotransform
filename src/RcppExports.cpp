@@ -37,15 +37,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_barycentric_weights
-Rcpp::List cpp_barycentric_weights(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces);
-RcppExport SEXP _neurotransform_cpp_barycentric_weights(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP) {
+Rcpp::List cpp_barycentric_weights(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, bool closest);
+RcppExport SEXP _neurotransform_cpp_barycentric_weights(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP, SEXP closestSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type coords(coordsSEXP);
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type vertices(verticesSEXP);
     Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type faces(facesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_weights(coords, vertices, faces));
+    Rcpp::traits::input_parameter< bool >::type closest(closestSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_weights(coords, vertices, faces, closest));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -354,7 +355,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_neurotransform_cpp_apply_projector", (DL_FUNC) &_neurotransform_cpp_apply_projector, 3},
     {"_neurotransform_cpp_apply_affine_chain", (DL_FUNC) &_neurotransform_cpp_apply_affine_chain, 2},
-    {"_neurotransform_cpp_barycentric_weights", (DL_FUNC) &_neurotransform_cpp_barycentric_weights, 3},
+    {"_neurotransform_cpp_barycentric_weights", (DL_FUNC) &_neurotransform_cpp_barycentric_weights, 4},
     {"_neurotransform_cpp_warp_jacobian", (DL_FUNC) &_neurotransform_cpp_warp_jacobian, 5},
     {"_neurotransform_cpp_warp_jacobian_cubic", (DL_FUNC) &_neurotransform_cpp_warp_jacobian_cubic, 5},
     {"_neurotransform_cpp_warp_jacobian_det_cubic", (DL_FUNC) &_neurotransform_cpp_warp_jacobian_det_cubic, 5},

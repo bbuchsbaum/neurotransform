@@ -1,0 +1,16 @@
+{
+  "base_revision": "9e7550d45d6d6b06155b27717057f4137aaf666e",
+  "state": "uncommitted changes",
+  "sha256": {
+    "src/rcpp_bary.cpp": "2332c69dd02736245b560d46a68dcc09e3ba6d6cacc72a760c9e8a3a184198cf",
+    "src/RcppExports.cpp": "c95f74aa295d856e3fe58caddb0c941001c79849b911c98a00c84d659078a735",
+    "R/RcppExports.R": "0ea5647b22d532238dc4beae58a52c5124c9988ef52f8f0c9c25826489cfa334",
+    "R/morphism.R": "6b28ccd51f0470022e8ddf34bd0694d5b10040b9588c8680a008bedd94f6893e",
+    "R/surface_resampling.R": "03cc8a126e99c7158952e9a297b2bcdbc20e9e1120ff164a5862364a22bedd8b",
+    "tests/testthat/test_barycentric_geometry.R": "da3653ec4ca3b733f4ea65b49f96c1a87d6b14f707c9bfa05cb3dcde85d12966",
+    "tests/testthat/test_barycentric_workbench.R": "e217f10938fbd96d9b8f36ee29eef2b837d19e177e1cfb908fa1a4ec2e65a6ce",
+    "tools/generate_barycentric_oracle.py": "00ca3dc995001fc2140f6a7e6fcac2b2bc69eea16259d330196f06c621f0ad96",
+    "tools/compare_barycentric_templates.py": "76e72fb93c0a0a04620407f0913fd1cc0a3b51deed392e27bec8aa540c58642b",
+    "inst/extdata/barycentric_oracle/oracle.json": "082bd0149756c42b0d0e9698b56a33301354434597b14cfeb2771e9c86718e10"
+  }
+}

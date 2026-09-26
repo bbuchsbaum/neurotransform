@@ -1,5 +1,11 @@
 # neurotransform 0.1.0
 
+- Fixed barycentric weight construction selecting distant or opposite-side
+  faces according to triangle order. Candidates are now ranked by geometric
+  projection distance. Spherical resampling includes closest edge/vertex
+  projections and rejects missing triangle support instead of substituting
+  nearest vertices. Degenerate faces are skipped using a relative tolerance.
+
 - Fixed NIfTI warp export to write the ANTs 5D vector layout and intent code.
 - Reject unsupported H5 components and malformed affine/displacement data
   instead of silently applying an incomplete transform.

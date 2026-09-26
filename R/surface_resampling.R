@@ -10,6 +10,12 @@ NULL
 #' Computes reusable interpolation weights mapping vertex data from a moving
 #' mesh onto a reference mesh.
 #'
+#' Spherical barycentric resampling uses the closest point on the rescaled
+#' triangular mesh, including edges and vertices (ordinary barycentric, without
+#' adaptive area correction). It does not use radial ray intersections. For
+#' nonspherical meshes, only interior orthogonal projections are considered,
+#' with a nearest-vertex fallback for uncovered queries.
+#'
 #' @param reference Reference/output surface (`SurfaceMesh` or surface-like object)
 #' @param moving Moving/input surface (`SurfaceMesh` or surface-like object)
 #' @param method Interpolation method: `"barycentric"` or `"nearest"`
@@ -45,7 +51,8 @@ surface_resampling_plan <- function(reference, moving,
       stop("barycentric method requires triangle faces on the moving mesh")
     }
 
-    w <- cpp_barycentric_weights(ref@coords, mov@coords, mov@faces)
+    w <- cpp_barycentric_weights(ref@coords, mov@coords, mov@faces,
+                                 closest = isTRUE(spherical))
     rows <- as.integer(w$rows)
     cols <- as.integer(w$cols)
     vals <- as.numeric(w$vals)
@@ -55,6 +62,9 @@ surface_resampling_plan <- function(reference, moving,
     if (length(rows) > 0L) covered[rows] <- TRUE
     missing <- which(!covered)
     if (length(missing) > 0L) {
+      if (isTRUE(spherical)) {
+        stop("spherical barycentric resampling has queries without valid triangle support")
+      }
       rows <- c(rows, missing)
       cols <- c(cols, cpp_nearest_vertex(ref@coords[missing, , drop = FALSE], mov@coords))
       vals <- c(vals, rep(1, length(missing)))

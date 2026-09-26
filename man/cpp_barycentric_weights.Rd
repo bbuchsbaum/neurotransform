@@ -4,7 +4,7 @@
 \alias{cpp_barycentric_weights}
 \title{Compute barycentric interpolation weights for surface mesh}
 \usage{
-cpp_barycentric_weights(coords, vertices, faces)
+cpp_barycentric_weights(coords, vertices, faces, closest = TRUE)
 }
 \arguments{
 \item{coords}{Numeric matrix (N x 3) of query points}
@@ -12,11 +12,17 @@ cpp_barycentric_weights(coords, vertices, faces)
 \item{vertices}{Numeric matrix (V x 3) of mesh vertices}
 
 \item{faces}{Integer matrix (F x 3) of face indices (0-based)}
+
+\item{closest}{Include closest edge/vertex points when the plane projection
+is outside a triangle (used for spherical resampling).}
 }
 \value{
 List with rows, cols, vals for sparse matrix construction
 }
 \description{
-Projects points onto a triangular mesh and computes barycentric weights.
+Finds the closest point on the mesh, including edge and vertex projections.
+With \code{closest=FALSE}, only interior orthogonal projections are considered.
+Degenerate faces are ignored; unsupported queries have no triplets.
+This is Euclidean projection, not radial ray intersection.
 }
 \keyword{internal}

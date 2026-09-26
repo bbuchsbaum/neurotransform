@@ -30,3 +30,10 @@ A \code{SurfaceResamplingPlan} object
 Computes reusable interpolation weights mapping vertex data from a moving
 mesh onto a reference mesh.
 }
+\details{
+Spherical barycentric resampling uses the closest point on the rescaled
+triangular mesh, including edges and vertices (ordinary barycentric, without
+adaptive area correction). It does not use radial ray intersections. For
+nonspherical meshes, only interior orthogonal projections are considered,
+with a nearest-vertex fallback for uncovered queries.
+}
