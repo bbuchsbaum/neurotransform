@@ -4,7 +4,7 @@
 \alias{cpp_barycentric_sample}
 \title{Barycentric interpolation on surface mesh}
 \usage{
-cpp_barycentric_sample(coords, vertices, faces, data)
+cpp_barycentric_sample(coords, vertices, faces, data, closest = FALSE)
 }
 \arguments{
 \item{coords}{Query coordinates (N x 3)}
@@ -14,6 +14,8 @@ cpp_barycentric_sample(coords, vertices, faces, data)
 \item{faces}{Face indices (F x 3, 1-based)}
 
 \item{data}{Vertex data (V) or (V x K)}
+
+\item{closest}{Include closest edge/vertex projections; otherwise require an interior projection.}
 }
 \value{
 Interpolated values

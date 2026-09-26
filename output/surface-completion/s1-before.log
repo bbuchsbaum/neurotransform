@@ -1,0 +1,34 @@
+
+Attaching package: ‘neurotransform’
+
+The following object is masked from ‘package:base’:
+
+    transform
+
+
+══ Testing test_surface_sampler_geometry.R ═════════════════════════════════════
+
+[ FAIL 0 | WARN 0 | SKIP 0 | PASS 0 ]
+[ FAIL 1 | WARN 0 | SKIP 0 | PASS 0 ]
+[ FAIL 2 | WARN 0 | SKIP 0 | PASS 0 ]
+
+── Failure ('test_surface_sampler_geometry.R:7:3'): surface samplers rank geometric distance rather than centroids ──
+Expected `neurotransform:::cpp_barycentric_sample(...)` to equal 0.
+Differences:
+  `actual`: 1.0
+`expected`: 0.0
+
+
+── Failure ('test_surface_sampler_geometry.R:9:3'): surface samplers rank geometric distance rather than centroids ──
+Expected `sampler@evaluate(query)` to equal 0.
+Differences:
+  `actual`: 1.0
+`expected`: 0.0
+
+
+[ FAIL 2 | WARN 0 | SKIP 0 | PASS 0 ]
+Error:
+! Test failures.
+Warning message:
+package ‘testthat’ was built under R version 4.5.2 
+Execution halted

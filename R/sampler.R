@@ -166,7 +166,7 @@ sampled_points <- function(coords) {
 surface_mesh <- function(vertices, faces = NULL) {
   if (!is.matrix(vertices)) {
     ref <- coerce_surface_reference(vertices, require_faces = FALSE)
-    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
+    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces + 1L
     vertices <- ref$vertices
   }
 
@@ -196,6 +196,12 @@ surface_mesh <- function(vertices, faces = NULL) {
   new("SurfaceMesh", coords = vertices, faces = faces0)
 }
 
+.surface_radii <- function(coords) {
+  scale <- pmax(abs(coords[, 1]), abs(coords[, 2]), abs(coords[, 3]))
+  divisor <- ifelse(scale > 0, scale, 1)
+  scale * sqrt(rowSums((coords / divisor)^2))
+}
+
 #' Check whether a surface mesh is approximately spherical
 #'
 #' @param mesh SurfaceMesh object
@@ -204,9 +210,9 @@ surface_mesh <- function(vertices, faces = NULL) {
 #' @export
 mesh_is_sphere <- function(mesh, tolerance = 1.001) {
   if (!inherits(mesh, "SurfaceMesh")) stop("mesh must be a SurfaceMesh")
-  dists <- sqrt(rowSums(mesh@coords^2))
+  dists <- .surface_radii(mesh@coords)
   if (!length(dists)) return(FALSE)
-  (min(dists) * tolerance) > max(dists)
+  all(is.finite(dists)) && min(dists) > 0 && (min(dists) * tolerance) > max(dists)
 }
 
 #' Set mesh radius for spherical meshes
@@ -217,11 +223,14 @@ mesh_is_sphere <- function(mesh, tolerance = 1.001) {
 #' @export
 mesh_set_radius <- function(mesh, radius = 100) {
   if (!inherits(mesh, "SurfaceMesh")) stop("mesh must be a SurfaceMesh")
+  if (length(radius) != 1L || !is.finite(radius) || radius <= 0)
+    stop("radius must be finite and positive")
   if (!mesh_is_sphere(mesh)) {
     stop("mesh_set_radius() requires an approximately spherical mesh")
   }
-  dists <- sqrt(rowSums(mesh@coords^2))
-  mesh@coords <- mesh@coords * (radius / dists)
+  dists <- .surface_radii(mesh@coords)
+  mesh@coords <- (mesh@coords / dists) * radius
+  if (!all(is.finite(mesh@coords))) stop("rescaled coordinates must be finite")
   mesh
 }
 
@@ -388,15 +397,19 @@ volume_sampler <- function(data, affine = NULL,
 #' @param data Vertex data (length V or V x k)
 #' @param faces Face indices (F x 3, optional)
 #' @param method "nearest" or "barycentric"
+#' @param projection Barycentric projection policy: interior orthogonal
+#'   projections (default), or the closest point including edges and vertices.
 #' @return Sampler object
 #' @export
 surface_sampler <- function(vertices, data, faces = NULL,
-                            method = c("nearest", "barycentric")) {
+                            method = c("nearest", "barycentric"),
+                            projection = c("interior", "closest")) {
   method <- match.arg(method)
+  projection <- match.arg(projection)
 
   if (!is.matrix(vertices)) {
     ref <- coerce_surface_reference(vertices, require_faces = FALSE)
-    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces
+    if (is.null(faces) && !is.null(ref$faces) && nrow(ref$faces) > 0L) faces <- ref$faces + 1L
     vertices <- ref$vertices
   }
 
@@ -410,6 +423,10 @@ surface_sampler <- function(vertices, data, faces = NULL,
   }
 
   nv <- nrow(vertices)
+  if (!is.numeric(data) || !(is.vector(data) || is.matrix(data))) {
+    stop("data must be a numeric vector or matrix")
+  }
+  if (method == "barycentric") faces <- surface_mesh(vertices, faces)@faces + 1L
   vdim <- if (is.matrix(data)) ncol(data) else 1L
   if ((is.vector(data) && length(data) != nv) || (is.matrix(data) && nrow(data) != nv)) {
     stop("data must have one value (or row) per vertex")
@@ -419,11 +436,12 @@ surface_sampler <- function(vertices, data, faces = NULL,
   evaluate_fn <- if (method == "nearest") {
     function(coords) {
       indices <- cpp_nearest_vertex(coords, vertices)
-      if (vdim == 1L) data[indices] else data[indices, , drop = FALSE]
+      if (is.matrix(data)) data[indices, , drop = FALSE] else data[indices]
     }
   } else {
     function(coords) {
-      cpp_barycentric_sample(coords, vertices, faces, data)
+      cpp_barycentric_sample(coords, vertices, faces, data,
+                             closest = identical(projection, "closest"))
     }
   }
 

@@ -1,5 +1,10 @@
 # neurotransform vNext: Jacobians and Resampling
 
+The current follow-up to the barycentric repair is the
+[Surface resampling completion plan](#surface-resampling-completion-plan-2026-09-26)
+at the end of this document. It distinguishes the verified baseline from
+proposed implementation and qualification work.
+
 ## Overview
 
 This document details the design for two major extensions to neurotransform:
@@ -1328,3 +1333,306 @@ Modulation is needed for:
 - Some registration metrics
 
 Making it explicit prevents silent errors.
+
+---
+
+## Surface resampling completion plan (2026-09-26)
+
+**Status:** S1 and S2 implemented and passed focused compiled checks. S3-S8
+remain open; full package and consumer qualification are not yet established.
+**Baseline:** `65bc01db745e232e8acaeff6e64dba6d60816980`.
+
+**Outcome:** one correct surface-projection implementation used by every
+barycentric entry point; practical full-density execution; explicit geometry,
+coverage, data-type and operator semantics; independent qualification for each
+advertised resampling method.
+
+**Scope:** native R/C++ surface geometry, plans, samplers, application policies,
+documentation and reproducible validation. Preserve the existing lightweight
+dependency model. Workbench is an optional independent oracle, not a new
+mandatory runtime dependency. Volume resampling, registration estimation and
+unrelated morphism redesign are outside this plan. A separate final handoff
+qualifies downstream routes; a package test pass does not activate them.
+
+### Verified starting point
+
+- `src/rcpp_bary.cpp` uses Euclidean closest-point projection, including triangle
+  edges/vertices. Spherical plans use this rule after radius normalization.
+  Generic morphisms explicitly retain interior-only orthogonal projection.
+- Analytic geometry tests and three complete synthetic Workbench weight
+  fixtures pass. Template comparisons cover 64 seeded targets in each of four
+  hemisphere/direction combinations, not all target vertices.
+- `src/rcpp_sample.cpp::cpp_barycentric_sample()` still has separate centroid
+  ranking. A confirmed counterexample has two triangles at z=0 and z=1, query
+  `(0.2,0.2,0.1)`, and constant values 0 and 1 on the respective triangles:
+  the separate sampler returns 1 and the corrected plan returns 0. The z=0
+  triangle spans `(0,0)`, `(100,0)`, `(0,100)`; the z=1 triangle spans `(0,0)`,
+  `(1,0)`, `(0,1)`. Both orthogonal projections are interior.
+- Weight construction scans all source faces per query. `mesh_is_sphere()`
+  checks radius variation, not topology. `inverse=TRUE` transposes triplets,
+  then applies the selected normalization; it does not construct reverse
+  geometric correspondence.
+- Baseline receipts, test results and limitations are retained in
+  [output/barycentric-qa-20260926](output/barycentric-qa-20260926/README.md).
+  The baseline package check has zero errors and one R/Clang header warning.
+
+### Invariants and compatibility decisions
+
+1. Ordinary spherical barycentric means closest-point projection on the mesh,
+   not radial intersection. Do not change that meaning during optimization.
+2. Share numerical geometry while keeping projection and outside-support
+   policies explicit. Preserve generic interior-only behavior by default;
+   expose closest-point behavior explicitly for direct surface samplers.
+3. Keep valid zero, absent geometric support, source masking, target masking
+   and missing metric data distinguishable. A nearest-vertex substitution is
+   an explicit policy and must be reported, never counted as triangle support.
+4. Triangle-row order and winding must not change results. Preserve the
+   documented deterministic tie-break for genuinely equidistant disjoint
+   faces; vertex-renumbering invariance is asserted where the geometric
+   projection is unique or shared-face projections are equivalent.
+5. Existing vector/matrix return shapes and index conventions require
+   regression coverage. New policy arguments are additive. Deprecate misleading
+   operator names with a documented transition instead of silently changing
+   their numerical behavior. Every new plan records its method, projection,
+   geometry identity, normalization and support policies.
+
+### Work sequence and acceptance gates
+
+| Phase | Depends on | Deliverable | Acceptance gate |
+| --- | --- | --- | --- |
+| S1. Shared projection | Baseline | One geometry kernel for weights and sampling | Both entry points pass the centroid counterexample and analytic oracles |
+| S2. Mesh admission | S1 | Structural sphere validation and diagnostics | Malformed fixtures fail explicitly; valid open generic meshes remain supported |
+| S3. Exact spatial index | S1, S2 | Reusable triangle bounding-volume hierarchy | Indexed search agrees with exhaustive search; measured full-size budget passes |
+| S4. Full ordinary-method qualification | S3 | Every target in both directions and hemispheres compared to Workbench | No unexplained errors or missing outputs; complete receipts |
+| S5. Coverage, missing data and labels | S1, S2 | Explicit application policies and categorical resampling | Independent policy fixtures and method-matched native comparisons |
+| S6. Reverse and adjoint semantics | S1, S5 | Separate reverse-plan and transpose/adjoint operations | Adjoint identity and independently rebuilt reverse-plan tests |
+| S7. Adaptive area method | S3, S5, S6 | Separately named native ADAP_BARY_AREA method | Area-aware analytic and Workbench qualification |
+| S8. Release and downstream admission | Required method gates above | Exact-revision package/consumer evidence | Supported-method matrix, package checks and consumer receipts agree |
+
+Recommended execution order is S1 through S8. S5/S6 do not require waiting for
+the long S4 comparison once their dependencies are satisfied. Land bounded
+changes with their own tests; keep ordinary barycentric qualification separate
+from the later adaptive-area milestone.
+
+#### S1. Share the numerical kernel
+
+Extract internal triangle projection, degeneracy handling and deterministic
+selection into a small common C++ module used by `rcpp_bary.cpp` and the surface
+part of `rcpp_sample.cpp`. Initially retain exhaustive search so geometry
+deduplication and acceleration are independently reviewable. Normalize and
+validate face indices once at each R/C++ boundary, including SurfaceMesh input
+to `surface_sampler()`; never reinterpret a zero-based mesh as one-based.
+
+Add the confirmed centroid-ranking regression and exercise direct compiled
+calls, `surface_sampler()`, spherical plans and generic morphisms. Cover vector,
+one-column and multi-column data, vertices, edges, opposite faces, face/winding
+permutations, scale, degeneracy and invalid indices. Reuse the independent
+octahedral L1-ball oracle and Workbench impulse fixtures, not only cross-entry
+point agreement. Preserve no-support behavior in interior-only mode. Matching
+projection policies must give matching sampling and plan application results.
+
+#### S2. Validate geometry at the correct boundary
+
+Add a diagnostic mesh validator used when constructing spherical source plans:
+finite coordinates; finite positive radius; valid indices; no repeated-index or
+duplicate faces; relative nondegeneracy; used vertices; connectedness; edge
+incidence; manifold vertex links; orientability; and sphere topology. A strict
+spherical source rejects degeneracies that the low-level projection kernel can
+skip. Report counts and offending indices rather than silently repairing input.
+
+Do not impose closed topology on generic planar/cut meshes, or on a reference
+that is only a matrix of query points. Validate target topology when a complete
+target mesh is supplied for qualification. Do not silently recenter an
+off-origin sphere. Topological sphere checks alone do not prove an embedded,
+nonfolded sphere. The implemented admission uses coherent radial face
+orientations and generic-ray degree-one counting, rejecting numerically
+indeterminate predicates. For a closed oriented manifold these establish a
+radial homeomorphism, excluding folds and nonadjacent intersections without
+a separate intersection search. Spherical area is a sanity diagnostic, not a
+certificate that rescues an uncertain sign. Winding permutations remain free.
+
+Fixtures must discriminate holes, disconnected components, nonmanifold edges
+and vertices, duplicate/zero-area faces, flipped input winding, geometric
+overlap, zero radius, translated spheres and valid open meshes.
+
+#### S3. Accelerate exact search
+
+Build an axis-aligned triangle bounding-volume hierarchy once per source mesh
+and reuse it for all queries in a plan or sampler lifetime. Reuse immutable
+triangle data and allow thread-local query scratch storage. Changes in ordered
+vertices, topology or projection policy invalidate reuse; serialized plans
+must not depend on a live process pointer.
+
+Traverse by conservative point-to-box distance bounds and prune only when a
+node cannot improve the current result. Equal-distance nodes must remain
+eligible for the deterministic tie-break; account for floating-point rounding
+in bounds. Do not replace this with a fixed number of nearest centroids or
+vertices. Interior-only search uses the same admissibility policy as S1.
+
+Retain exhaustive search as a small-mesh test oracle. Compare distances,
+supporting vertices and weights on seeded irregular meshes, skinny valid
+triangles, boundary/near-boundary queries, disconnected generic surfaces,
+permutations and different thread counts. Analytic and Workbench evidence still
+checks the shared projection formula independently.
+
+Measure index build, query, reusable application and peak memory separately,
+with source revision, hardware, threads and workload hashes. Proposed ordinary
+method budget: each full 32k/164k direction in under 60 seconds for plan
+construction and under 1 GiB additional peak resident memory on the recorded
+local machine with four threads. These are targets, not measured claims.
+Record any budget revision before evaluating the revised implementation;
+never relax numerical acceptance to meet it. Worst-case search may still be
+linear in the number of faces.
+
+#### S4. Qualify all ordinary barycentric targets
+
+Extend `tools/compare_barycentric_templates.py` with an explicit full-target
+mode; the existing script is sampled and must not be relabeled as full. Use
+the pinned fsaverage 164k and registered fsLR 32k spheres, both hemispheres and
+both directions. Run all six existing nonconstant fields, additional seeded
+fields and selected localized impulses. Keep complete basis-response tests on
+small meshes; avoid a dense full-template identity matrix.
+
+For every target, check finite/nonnegative weights, row sums, valid indices,
+coverage and outputs before application normalization. Retain maximum, RMS
+and quantile errors plus the identities and neighborhoods of worst cases.
+Check reversed source face order and source-vertex identity mapping. Start
+with the existing absolute tolerances: 1e-12 for controlled double-precision
+analytic fixtures, 2e-6 for synthetic Workbench weights, and 5e-5 for the
+existing bounded template fields. Additional field scales need a tolerance
+declared before their results are inspected.
+
+Require successful exits, expected output counts, matched geometry/methods,
+input/script/executable/DLL hashes, exact source revision, versions and full
+logs. Preserve discrepancies for diagnosis; neither averaging errors nor
+nearest-neighbor replacement closes a failed case. Cross-platform CI and
+multiple thread counts must retain the same numerical contract.
+
+#### S5. Make data and coverage policies explicit
+
+Keep the geometric operator reusable and report geometric support separately
+from source-ROI weight mass, finite-data weight mass and target-ROI admission.
+Data support is per column when columns have different missingness. Proposed
+default for continuous data: propagate a missing value with positive support;
+zero-weight missing values do not contaminate a result. Offer explicit omission
+with renormalization and an explicit error policy. Omission must return retained
+weight mass; all-missing or zero valid support is unavailable, not numerical zero.
+
+Treat source and target masks independently. A target mask does not alter
+source correspondence, and source exclusion does not imply an identical target
+ROI. Preserve raw support mass before any permitted renormalization. Existing
+numeric-return APIs may expose richer diagnostics through an additive details
+option; defaults and compatibility behavior must be documented and tested.
+
+Add explicit label handling with preserved integer keys and label tables:
+largest-weight source vertex and aggregate weight per label are distinct
+policies. Choose aggregate weight as the proposed categorical default. Specify
+deterministic ties and unassigned-label behavior; never interpolate numeric
+label IDs. Compare non-tie cases to Workbench and retain explicit tie fixtures
+even if Workbench uses an ordering-dependent tie convention.
+
+Test legitimate zero, all-masked/all-missing input, isolated valid vertices,
+medial-wall boundaries, disconnected valid regions, NA/NaN/Inf handling,
+column-specific missingness and multi-label neighborhoods. A geometric hole
+must fail admission rather than become a masking test. Workbench supports
+source ROI and valid-output ROI separately, and its default label method sums
+weights by label ([metric command](https://www.humanconnectome.org/software/workbench-command/-metric-resample),
+[label command](https://www.humanconnectome.org/software/workbench-command/-label-resample)).
+Map these semantics explicitly before asserting parity.
+
+#### S6. Separate reverse resampling from adjoint application
+
+Specify the actual frozen linear operator `W`, including any fixed masks and
+normalization. Forward application is `W x`; its Euclidean adjoint is `W^T y`
+without an additional implicit renormalization. Test the inner-product identity
+with independent dense small-matrix calculations, including rectangular and
+rank-deficient cases. Missing-data omission creates data-dependent weights and
+cannot be advertised as the same fixed linear operator.
+
+Provide reverse resampling by constructing a new plan with source and target
+geometries swapped, requiring faces on the new source. Accept those geometries
+explicitly and verify their recorded identities: current plans store triplets
+and counts, not the meshes needed to reconstruct correspondence. Do not claim it equals
+`W^T` or recovers information lost during downsampling. Deprecate `inverse=TRUE`
+as a naming/compatibility alias for its documented legacy behavior; do not
+silently reinterpret existing calls as geometric inversion. Resolve explicit
+new-operation versus legacy-flag conflicts by error.
+
+Audit `normalize="sum"`: column normalization conserves represented discrete
+mass only for supported source columns; it cannot transport an unrepresented
+source value. Do not equate it with anatomical area correction. If an
+area-weighted adjoint is exposed, state its inner products and test
+`A_source^-1 W^T A_target` with valid area measures separately.
+
+#### S7. Add adaptive area resampling as its own method
+
+First write and review the mathematical contract against the pinned Workbench
+implementation: forward/reverse support, adaptive combination, area correction,
+normalization and ROI ordering. Then implement it as a separate native method
+using the shared validated geometry and index. Do not rename ordinary
+barycentric interpolation or column normalization as adaptive area resampling.
+
+Require source and target vertex areas or corresponding anatomical meshes,
+with geometry identity, dimensions and finite positive contributing areas
+checked. Specify zero-area handling explicitly. Preserve area provenance and
+units; normalized spherical area is not an interchangeable substitute for
+anatomical area. Workbench requires area inputs for ADAP_BARY_AREA
+([method documentation](https://www.humanconnectome.org/software/workbench-command/-metric-resample)).
+
+Qualify unequal-area synthetic meshes, constant and nonconstant metrics,
+localized support, downsampling, label policies, masking and all four template
+directions. Compare both continuous and categorical results to method-matched
+Workbench calls. Assert conservation only for the quantity and conditions
+proved by the specified algorithm; ordinary constant preservation alone does
+not establish an area-integral conservation claim. Failure leaves the method
+unavailable rather than substituting another algorithm.
+
+#### S8. Close package and consumer qualification separately
+
+Update public documentation, NEWS and examples with the supported method,
+projection, normalization, coverage and operator contracts. Keep a capability
+matrix distinguishing ordinary continuous, ordinary categorical and adaptive
+area methods, each with its exact qualification evidence. Run the complete
+package checks on each bounded landing and required macOS/Linux/Windows CI.
+Record skips and environmental warnings separately from algorithm failures.
+
+Only then update a downstream engine pin and rerun its admission probe and
+method-specific route comparisons at that exact revision. This is a separate
+consumer change with its own ownership and publication scope. Preserve the
+original failed receipts and do not turn a geometry fix into an unsupported
+claim about masks, labels, areas or every production route.
+
+### Verification commands and evidence locations
+
+These commands refer to existing package interfaces. They are planned checks,
+not claims of new execution. Add new focused test files to the filter as phases
+land; use a fresh temporary build/check directory for each retained attempt.
+
+```sh
+LC_ALL=en_US.UTF-8 Rscript -e 'devtools::test(filter="barycentric|sampling|surf_to_surf|surface_resampling_plan|surface_geometry", reporter="summary", stop_on_failure=TRUE)'
+LC_ALL=en_US.UTF-8 Rscript -e 'devtools::test(reporter="summary", stop_on_failure=TRUE)'
+LC_ALL=en_US.UTF-8 R CMD build .
+LC_ALL=en_US.UTF-8 RGL_USE_NULL=true R CMD check --no-manual neurotransform_0.1.0.tar.gz
+```
+
+Use the actual versioned tarball if DESCRIPTION changes. The current optional
+Workbench generators accept these positional arguments; paths are placeholders:
+
+```sh
+python3 tools/generate_barycentric_oracle.py /path/to/wb_command /tmp/new-oracle-attempt
+R_LIBS=/path/to/rebuilt/library OMP_NUM_THREADS=4 python3 tools/compare_barycentric_templates.py /path/to/wb_command /path/to/pinned/inputs /tmp/new-template-attempt
+```
+
+The second command remains sampled until S4 implements and documents its new
+full-target mode. Retain attempt-scoped evidence under `output/`, with compact
+independent fixtures under `inst/extdata/`. A failed or incomplete attempt is
+not replaced by a success-only summary.
+
+**Risks / escalation conditions:** indexed/exhaustive disagreement; ambiguous
+projection or missingness semantics; compatibility break; true equal-distance
+tie discrepancies; template errors beyond declared tolerance; questionable
+area measures; or a resource budget exceeded without an explained cause.
+Resolve the contract or numerical discrepancy before extending implementation.
+
+**Next action:** S3 exact spatial indexing, followed by full-target comparisons.
+S1/S2 receipts are in `output/surface-completion/`.

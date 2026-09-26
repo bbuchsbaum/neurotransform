@@ -180,10 +180,11 @@ cpp_nearest_vertex <- function(coords, vertices) {
 #' @param vertices Mesh vertex coordinates (V x 3)
 #' @param faces Face indices (F x 3, 1-based)
 #' @param data Vertex data (V) or (V x K)
+#' @param closest Include closest edge/vertex projections; otherwise require an interior projection.
 #' @return Interpolated values
 #' @keywords internal
-cpp_barycentric_sample <- function(coords, vertices, faces, data) {
-    .Call(`_neurotransform_cpp_barycentric_sample`, coords, vertices, faces, data)
+cpp_barycentric_sample <- function(coords, vertices, faces, data, closest = FALSE) {
+    .Call(`_neurotransform_cpp_barycentric_sample`, coords, vertices, faces, data, closest)
 }
 
 #' Ribbon sampling from volume onto surface
@@ -200,6 +201,10 @@ cpp_barycentric_sample <- function(coords, vertices, faces, data) {
 #' @keywords internal
 cpp_ribbon_sample_volume <- function(data, inner, outer, world_to_vox, n_steps, method) {
     .Call(`_neurotransform_cpp_ribbon_sample_volume`, data, inner, outer, world_to_vox, n_steps, method)
+}
+
+cpp_validate_surface <- function(vertices, faces, spherical = TRUE, radius_tolerance = 1.001) {
+    .Call(`_neurotransform_cpp_validate_surface`, vertices, faces, spherical, radius_tolerance)
 }
 
 #' Fast triplet to dgCMatrix assembly with duplicate aggregation

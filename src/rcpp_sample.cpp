@@ -1,4 +1,5 @@
 #include <RcppArmadillo.h>
+#include "surface_projection.h"
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -211,121 +212,53 @@ Rcpp::IntegerVector cpp_nearest_vertex(const Rcpp::NumericMatrix& coords,
 //' @param vertices Mesh vertex coordinates (V x 3)
 //' @param faces Face indices (F x 3, 1-based)
 //' @param data Vertex data (V) or (V x K)
+//' @param closest Include closest edge/vertex projections; otherwise require an interior projection.
 //' @return Interpolated values
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::NumericVector cpp_barycentric_sample(const Rcpp::NumericMatrix& coords,
                                             const Rcpp::NumericMatrix& vertices,
                                             const Rcpp::IntegerMatrix& faces,
-                                            const Rcpp::NumericVector& data) {
-  int n = coords.nrow();
-  int nf = faces.nrow();
-  int nv = vertices.nrow();
-
-  // Check if data is matrix (V x K) or vector (V)
-  int k = 1;
-  SEXP dims_sexp = data.attr("dim");
-  if (dims_sexp != R_NilValue) {
-    Rcpp::IntegerVector data_dims(dims_sexp);
-    if (data_dims.size() == 2) {
-      k = data_dims[1];
-    }
+                                            const Rcpp::NumericVector& data,
+                                            bool closest = false) {
+  if (coords.ncol() != 3 || faces.ncol() != 3)
+    Rcpp::stop("coords and faces must have three columns");
+  arma::mat pts = Rcpp::as<arma::mat>(coords);
+  arma::mat verts = Rcpp::as<arma::mat>(vertices);
+  arma::imat f = Rcpp::as<arma::imat>(faces);
+  // This legacy compiled entry point accepts one-based faces.
+  for (arma::uword j = 0; j < f.n_elem; ++j) {
+    if (f[j] <= 0) Rcpp::stop("faces must contain valid one-based vertex indices");
+    --f[j];
   }
-
-  Rcpp::NumericVector out(n * k);
-  if (k > 1) {
-    out.attr("dim") = Rcpp::IntegerVector::create(n, k);
+  neurotransform::validate_mesh(verts, f);
+  int n = coords.nrow(), nv = vertices.nrow(), k = 1;
+  bool matrix_data = data.hasAttribute("dim");
+  if (matrix_data) {
+    Rcpp::IntegerVector dims = data.attr("dim");
+    if (dims.size() != 2 || dims[0] != nv)
+      Rcpp::stop("data must have one row per vertex");
+    k = dims[1];
   }
-
+  if (data.size() != static_cast<R_xlen_t>(nv) * k)
+    Rcpp::stop("data must have one value or row per vertex");
+  Rcpp::NumericVector out(static_cast<R_xlen_t>(n) * k, NA_REAL);
+  if (matrix_data) out.attr("dim") = Rcpp::IntegerVector::create(n, k);
 #ifdef _OPENMP
   #pragma omp parallel for
 #endif
   for (int i = 0; i < n; ++i) {
-    double qx = coords(i,0), qy = coords(i,1), qz = coords(i,2);
-
-    // Find best face (brute force - could use spatial index)
-    double best_dist = std::numeric_limits<double>::infinity();
-    int best_face = -1;
-    double best_u = 0, best_v = 0, best_w = 0;
-
-    for (int f = 0; f < nf; ++f) {
-      // 1-based to 0-based
-      int v0 = faces(f,0) - 1;
-      int v1 = faces(f,1) - 1;
-      int v2 = faces(f,2) - 1;
-
-      // Triangle vertices
-      double ax = vertices(v0,0), ay = vertices(v0,1), az = vertices(v0,2);
-      double bx = vertices(v1,0), by = vertices(v1,1), bz = vertices(v1,2);
-      double cx = vertices(v2,0), cy = vertices(v2,1), cz = vertices(v2,2);
-
-      // Compute barycentric coordinates
-      double e1x = bx-ax, e1y = by-ay, e1z = bz-az;
-      double e2x = cx-ax, e2y = cy-ay, e2z = cz-az;
-      double px = qx-ax, py = qy-ay, pz = qz-az;
-
-      double d11 = e1x*e1x + e1y*e1y + e1z*e1z;
-      double d12 = e1x*e2x + e1y*e2y + e1z*e2z;
-      double d22 = e2x*e2x + e2y*e2y + e2z*e2z;
-      double d1p = e1x*px + e1y*py + e1z*pz;
-      double d2p = e2x*px + e2y*py + e2z*pz;
-
-      double denom = d11*d22 - d12*d12 + 1e-15;
-      double bv = (d22*d1p - d12*d2p) / denom;
-      double bw = (d11*d2p - d12*d1p) / denom;
-      double bu = 1.0 - bv - bw;
-
-      // Check if inside or near triangle
-      if (bu >= -0.01 && bv >= -0.01 && bw >= -0.01) {
-        // Compute distance to centroid as tie-breaker
-        double centx = (ax+bx+cx)/3, centy = (ay+by+cy)/3, centz = (az+bz+cz)/3;
-        double dx = qx-centx, dy = qy-centy, dz = qz-centz;
-        double dist = dx*dx + dy*dy + dz*dz;
-
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_face = f;
-          // Clamp and renormalize
-          bu = std::max(0.0, bu);
-          bv = std::max(0.0, bv);
-          bw = std::max(0.0, bw);
-          double sum = bu + bv + bw;
-          best_u = bu/sum;
-          best_v = bv/sum;
-          best_w = bw/sum;
-        }
+    arma::uword face;
+    arma::rowvec weights(3);
+    if (!neurotransform::bary_point(pts.row(i), verts, f, closest, face, weights)) continue;
+    for (int col = 0; col < k; ++col) {
+      double value = 0;
+      for (int j = 0; j < 3; ++j) {
+        if (weights[j] > 0) value += weights[j] * data[f(face,j) + nv * col];
       }
-    }
-
-    if (best_face >= 0) {
-      int v0 = faces(best_face,0) - 1;
-      int v1 = faces(best_face,1) - 1;
-      int v2 = faces(best_face,2) - 1;
-
-      for (int kk = 0; kk < k; ++kk) {
-        double val0 = (k == 1) ? data[v0] : data[v0 + nv*kk];
-        double val1 = (k == 1) ? data[v1] : data[v1 + nv*kk];
-        double val2 = (k == 1) ? data[v2] : data[v2 + nv*kk];
-        double interp = best_u*val0 + best_v*val1 + best_w*val2;
-
-        if (k == 1) {
-          out[i] = interp;
-        } else {
-          out[i + n*kk] = interp;
-        }
-      }
-    } else {
-      // No face found - return NA
-      for (int kk = 0; kk < k; ++kk) {
-        if (k == 1) {
-          out[i] = NA_REAL;
-        } else {
-          out[i + n*kk] = NA_REAL;
-        }
-      }
+      out[i + n * col] = value;
     }
   }
-
   return out;
 }
 

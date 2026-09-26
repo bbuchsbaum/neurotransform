@@ -8,7 +8,8 @@ surface_sampler(
   vertices,
   data,
   faces = NULL,
-  method = c("nearest", "barycentric")
+  method = c("nearest", "barycentric"),
+  projection = c("interior", "closest")
 )
 }
 \arguments{
@@ -19,6 +20,9 @@ surface_sampler(
 \item{faces}{Face indices (F x 3, optional)}
 
 \item{method}{"nearest" or "barycentric"}
+
+\item{projection}{Barycentric projection policy: interior orthogonal
+projections (default), or the closest point including edges and vertices.}
 }
 \value{
 Sampler object

@@ -101,7 +101,7 @@ test_that("degenerate faces cannot fabricate spherical support", {
   expect_equal(bary_matrix(query, mesh$vertices, rbind(degenerate, mesh$faces), TRUE),
                bary_matrix(query, mesh$vertices, mesh$faces, TRUE))
   expect_error(surface_resampling_plan(surface_mesh(query),
-    surface_mesh(mesh$vertices, degenerate)), "without valid triangle support")
+    surface_mesh(mesh$vertices, degenerate)), "invalid spherical mesh")
   # Small but nonzero support must survive triplet emission.
   flat <- rbind(c(0, 0, 0), c(1, 0, 0), c(0, 1, 0))
   expect_equal(bary_matrix(matrix(c(1e-11, 0.5, 0), 1), flat, matrix(1:3, 1)),

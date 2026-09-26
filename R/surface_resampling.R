@@ -5,6 +5,36 @@
 #' This keeps the core API small while enabling reusable vertex-data transport.
 NULL
 
+#' Validate a surface mesh
+#'
+#' Reports invalid faces and topology without repairing them. Spherical
+#' admission additionally requires origin-based radius spread within tolerance,
+#' a closed connected orientable manifold of sphere topology, unambiguous radial
+#' face orientations and radial mapping degree one. Input face winding is free.
+#' Generic open meshes do not require closed topology or spherical geometry.
+#'
+#' @param mesh SurfaceMesh or surface-like object with faces.
+#' @param spherical Require an embedded spherical triangulation.
+#' @param error Stop when validation fails instead of returning diagnostics.
+#' @param radius_tolerance Maximum ratio of vertex radii about the origin.
+#' @return Diagnostic list with valid, issues (one-based offending indices),
+#'   topology counts, radius range, radial degree and numerical margins.
+#' @export
+validate_surface_mesh <- function(mesh, spherical = TRUE, error = FALSE,
+                                  radius_tolerance = 1.001) {
+  mesh <- if (inherits(mesh, "SurfaceMesh")) mesh else surface_mesh(mesh)
+  if (length(spherical) != 1L || is.na(spherical) || !is.logical(spherical))
+    stop("spherical must be one logical value")
+  if (length(radius_tolerance) != 1L || !is.finite(radius_tolerance) || radius_tolerance <= 1)
+    stop("radius_tolerance must be finite and greater than one")
+  result <- cpp_validate_surface(mesh@coords, mesh@faces, spherical, radius_tolerance)
+  if (isTRUE(error) && !result$valid) {
+    stop("invalid ", if (spherical) "spherical " else "", "mesh: ",
+         paste(names(result$issues), collapse = ", "), call. = FALSE)
+  }
+  result
+}
+
 #' Build a surface resampling plan
 #'
 #' Computes reusable interpolation weights mapping vertex data from a moving
@@ -33,8 +63,12 @@ surface_resampling_plan <- function(reference, moving,
   mov <- if (inherits(moving, "SurfaceMesh")) moving else surface_mesh(moving)
 
   if (isTRUE(spherical)) {
+    if (length(radius) != 1L || !is.finite(radius) || radius <= 0)
+      stop("radius must be finite and positive")
     if (!mesh_is_sphere(ref)) stop("reference mesh is not approximately spherical")
     if (!mesh_is_sphere(mov)) stop("moving mesh is not approximately spherical")
+    if (method != "nearest" || nrow(mov@faces)) validate_surface_mesh(mov, spherical = TRUE, error = TRUE)
+    if (nrow(ref@faces)) validate_surface_mesh(ref, spherical = TRUE, error = TRUE)
     ref <- mesh_set_radius(ref, radius = radius)
     mov <- mesh_set_radius(mov, radius = radius)
   }

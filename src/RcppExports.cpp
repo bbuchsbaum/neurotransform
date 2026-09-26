@@ -225,8 +225,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_barycentric_sample
-Rcpp::NumericVector cpp_barycentric_sample(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, const Rcpp::NumericVector& data);
-RcppExport SEXP _neurotransform_cpp_barycentric_sample(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP, SEXP dataSEXP) {
+Rcpp::NumericVector cpp_barycentric_sample(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, const Rcpp::NumericVector& data, bool closest);
+RcppExport SEXP _neurotransform_cpp_barycentric_sample(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP, SEXP dataSEXP, SEXP closestSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -234,7 +234,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type vertices(verticesSEXP);
     Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type faces(facesSEXP);
     Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type data(dataSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_sample(coords, vertices, faces, data));
+    Rcpp::traits::input_parameter< bool >::type closest(closestSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_sample(coords, vertices, faces, data, closest));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -251,6 +252,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_steps(n_stepsSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type method(methodSEXP);
     rcpp_result_gen = Rcpp::wrap(cpp_ribbon_sample_volume(data, inner, outer, world_to_vox, n_steps, method));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_validate_surface
+Rcpp::List cpp_validate_surface(const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, bool spherical, double radius_tolerance);
+RcppExport SEXP _neurotransform_cpp_validate_surface(SEXP verticesSEXP, SEXP facesSEXP, SEXP sphericalSEXP, SEXP radius_toleranceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type vertices(verticesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type faces(facesSEXP);
+    Rcpp::traits::input_parameter< bool >::type spherical(sphericalSEXP);
+    Rcpp::traits::input_parameter< double >::type radius_tolerance(radius_toleranceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_validate_surface(vertices, faces, spherical, radius_tolerance));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -368,8 +383,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_neurotransform_cpp_ribbon_weights", (DL_FUNC) &_neurotransform_cpp_ribbon_weights, 6},
     {"_neurotransform_cpp_sample_volume", (DL_FUNC) &_neurotransform_cpp_sample_volume, 5},
     {"_neurotransform_cpp_nearest_vertex", (DL_FUNC) &_neurotransform_cpp_nearest_vertex, 2},
-    {"_neurotransform_cpp_barycentric_sample", (DL_FUNC) &_neurotransform_cpp_barycentric_sample, 4},
+    {"_neurotransform_cpp_barycentric_sample", (DL_FUNC) &_neurotransform_cpp_barycentric_sample, 5},
     {"_neurotransform_cpp_ribbon_sample_volume", (DL_FUNC) &_neurotransform_cpp_ribbon_sample_volume, 6},
+    {"_neurotransform_cpp_validate_surface", (DL_FUNC) &_neurotransform_cpp_validate_surface, 4},
     {"_neurotransform_cpp_triplets_to_dgC", (DL_FUNC) &_neurotransform_cpp_triplets_to_dgC, 6},
     {"_neurotransform_cpp_apply_warp_field", (DL_FUNC) &_neurotransform_cpp_apply_warp_field, 4},
     {"_neurotransform_cpp_apply_warp_field_cubic", (DL_FUNC) &_neurotransform_cpp_apply_warp_field_cubic, 4},
