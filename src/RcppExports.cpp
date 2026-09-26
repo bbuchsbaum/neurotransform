@@ -37,8 +37,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // cpp_barycentric_weights
-Rcpp::List cpp_barycentric_weights(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, bool closest);
-RcppExport SEXP _neurotransform_cpp_barycentric_weights(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP, SEXP closestSEXP) {
+Rcpp::List cpp_barycentric_weights(const Rcpp::NumericMatrix& coords, const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces, bool closest, bool indexed);
+RcppExport SEXP _neurotransform_cpp_barycentric_weights(SEXP coordsSEXP, SEXP verticesSEXP, SEXP facesSEXP, SEXP closestSEXP, SEXP indexedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -46,7 +46,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type vertices(verticesSEXP);
     Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type faces(facesSEXP);
     Rcpp::traits::input_parameter< bool >::type closest(closestSEXP);
-    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_weights(coords, vertices, faces, closest));
+    Rcpp::traits::input_parameter< bool >::type indexed(indexedSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_barycentric_weights(coords, vertices, faces, closest, indexed));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -269,6 +270,43 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cpp_surface_index
+SEXP cpp_surface_index(const Rcpp::NumericMatrix& vertices, const Rcpp::IntegerMatrix& faces);
+RcppExport SEXP _neurotransform_cpp_surface_index(SEXP verticesSEXP, SEXP facesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type vertices(verticesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::IntegerMatrix& >::type faces(facesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_surface_index(vertices, faces));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_surface_index_valid
+bool cpp_surface_index_valid(SEXP pointer);
+RcppExport SEXP _neurotransform_cpp_surface_index_valid(SEXP pointerSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type pointer(pointerSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_surface_index_valid(pointer));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cpp_surface_index_sample
+Rcpp::NumericVector cpp_surface_index_sample(SEXP pointer, const Rcpp::NumericMatrix& coords, const Rcpp::NumericVector& data, bool closest);
+RcppExport SEXP _neurotransform_cpp_surface_index_sample(SEXP pointerSEXP, SEXP coordsSEXP, SEXP dataSEXP, SEXP closestSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type pointer(pointerSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericMatrix& >::type coords(coordsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::NumericVector& >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< bool >::type closest(closestSEXP);
+    rcpp_result_gen = Rcpp::wrap(cpp_surface_index_sample(pointer, coords, data, closest));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cpp_triplets_to_dgC
 Rcpp::S4 cpp_triplets_to_dgC(const Rcpp::IntegerVector& i, const Rcpp::IntegerVector& j, const Rcpp::NumericVector& x, int nrow, int ncol, int threads);
 RcppExport SEXP _neurotransform_cpp_triplets_to_dgC(SEXP iSEXP, SEXP jSEXP, SEXP xSEXP, SEXP nrowSEXP, SEXP ncolSEXP, SEXP threadsSEXP) {
@@ -370,7 +408,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_neurotransform_cpp_apply_projector", (DL_FUNC) &_neurotransform_cpp_apply_projector, 3},
     {"_neurotransform_cpp_apply_affine_chain", (DL_FUNC) &_neurotransform_cpp_apply_affine_chain, 2},
-    {"_neurotransform_cpp_barycentric_weights", (DL_FUNC) &_neurotransform_cpp_barycentric_weights, 4},
+    {"_neurotransform_cpp_barycentric_weights", (DL_FUNC) &_neurotransform_cpp_barycentric_weights, 5},
     {"_neurotransform_cpp_warp_jacobian", (DL_FUNC) &_neurotransform_cpp_warp_jacobian, 5},
     {"_neurotransform_cpp_warp_jacobian_cubic", (DL_FUNC) &_neurotransform_cpp_warp_jacobian_cubic, 5},
     {"_neurotransform_cpp_warp_jacobian_det_cubic", (DL_FUNC) &_neurotransform_cpp_warp_jacobian_det_cubic, 5},
@@ -386,6 +424,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_neurotransform_cpp_barycentric_sample", (DL_FUNC) &_neurotransform_cpp_barycentric_sample, 5},
     {"_neurotransform_cpp_ribbon_sample_volume", (DL_FUNC) &_neurotransform_cpp_ribbon_sample_volume, 6},
     {"_neurotransform_cpp_validate_surface", (DL_FUNC) &_neurotransform_cpp_validate_surface, 4},
+    {"_neurotransform_cpp_surface_index", (DL_FUNC) &_neurotransform_cpp_surface_index, 2},
+    {"_neurotransform_cpp_surface_index_valid", (DL_FUNC) &_neurotransform_cpp_surface_index_valid, 1},
+    {"_neurotransform_cpp_surface_index_sample", (DL_FUNC) &_neurotransform_cpp_surface_index_sample, 4},
     {"_neurotransform_cpp_triplets_to_dgC", (DL_FUNC) &_neurotransform_cpp_triplets_to_dgC, 6},
     {"_neurotransform_cpp_apply_warp_field", (DL_FUNC) &_neurotransform_cpp_apply_warp_field, 4},
     {"_neurotransform_cpp_apply_warp_field_cubic", (DL_FUNC) &_neurotransform_cpp_apply_warp_field_cubic, 4},

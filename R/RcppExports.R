@@ -41,10 +41,11 @@ cpp_apply_affine_chain <- function(coords, matrices) {
 #' @param faces Integer matrix (F x 3) of face indices (0-based)
 #' @param closest Include closest edge/vertex points when the plane projection
 #'   is outside a triangle (used for spherical resampling).
-#' @return List with rows, cols, vals for sparse matrix construction
+#' @param indexed Use the spatial index; FALSE retains exhaustive search for validation.
+#' @return List with sparse triplets, query diagnostics and build/query timings
 #' @keywords internal
-cpp_barycentric_weights <- function(coords, vertices, faces, closest = TRUE) {
-    .Call(`_neurotransform_cpp_barycentric_weights`, coords, vertices, faces, closest)
+cpp_barycentric_weights <- function(coords, vertices, faces, closest = TRUE, indexed = TRUE) {
+    .Call(`_neurotransform_cpp_barycentric_weights`, coords, vertices, faces, closest, indexed)
 }
 
 #' Compute Jacobian matrices for a warp field at given coordinates
@@ -205,6 +206,18 @@ cpp_ribbon_sample_volume <- function(data, inner, outer, world_to_vox, n_steps, 
 
 cpp_validate_surface <- function(vertices, faces, spherical = TRUE, radius_tolerance = 1.001) {
     .Call(`_neurotransform_cpp_validate_surface`, vertices, faces, spherical, radius_tolerance)
+}
+
+cpp_surface_index <- function(vertices, faces) {
+    .Call(`_neurotransform_cpp_surface_index`, vertices, faces)
+}
+
+cpp_surface_index_valid <- function(pointer) {
+    .Call(`_neurotransform_cpp_surface_index_valid`, pointer)
+}
+
+cpp_surface_index_sample <- function(pointer, coords, data, closest = FALSE) {
+    .Call(`_neurotransform_cpp_surface_index_sample`, pointer, coords, data, closest)
 }
 
 #' Fast triplet to dgCMatrix assembly with duplicate aggregation

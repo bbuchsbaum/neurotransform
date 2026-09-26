@@ -75,6 +75,7 @@ surface_resampling_plan <- function(reference, moving,
 
   n_ref <- nrow(ref@coords)
   n_mov <- nrow(mov@coords)
+  timing <- NULL
 
   if (identical(method, "nearest")) {
     rows <- seq_len(n_ref)
@@ -90,6 +91,7 @@ surface_resampling_plan <- function(reference, moving,
     rows <- as.integer(w$rows)
     cols <- as.integer(w$cols)
     vals <- as.numeric(w$vals)
+    timing <- w$timing
 
     # Robust fallback: if a point yields no barycentric support, use nearest vertex.
     covered <- rep(FALSE, n_ref)
@@ -114,7 +116,8 @@ surface_resampling_plan <- function(reference, moving,
       n_moving = as.integer(n_mov),
       method = method,
       spherical = isTRUE(spherical),
-      radius = as.numeric(radius)
+      radius = as.numeric(radius),
+      timing = timing
     ),
     class = "SurfaceResamplingPlan"
   )

@@ -1,5 +1,5 @@
 #include <RcppArmadillo.h>
-#include "surface_projection.h"
+#include "surface_index.h"
 #ifdef _OPENMP
   #include <omp.h>
 #endif
@@ -231,35 +231,8 @@ Rcpp::NumericVector cpp_barycentric_sample(const Rcpp::NumericMatrix& coords,
     if (f[j] <= 0) Rcpp::stop("faces must contain valid one-based vertex indices");
     --f[j];
   }
-  neurotransform::validate_mesh(verts, f);
-  int n = coords.nrow(), nv = vertices.nrow(), k = 1;
-  bool matrix_data = data.hasAttribute("dim");
-  if (matrix_data) {
-    Rcpp::IntegerVector dims = data.attr("dim");
-    if (dims.size() != 2 || dims[0] != nv)
-      Rcpp::stop("data must have one row per vertex");
-    k = dims[1];
-  }
-  if (data.size() != static_cast<R_xlen_t>(nv) * k)
-    Rcpp::stop("data must have one value or row per vertex");
-  Rcpp::NumericVector out(static_cast<R_xlen_t>(n) * k, NA_REAL);
-  if (matrix_data) out.attr("dim") = Rcpp::IntegerVector::create(n, k);
-#ifdef _OPENMP
-  #pragma omp parallel for
-#endif
-  for (int i = 0; i < n; ++i) {
-    arma::uword face;
-    arma::rowvec weights(3);
-    if (!neurotransform::bary_point(pts.row(i), verts, f, closest, face, weights)) continue;
-    for (int col = 0; col < k; ++col) {
-      double value = 0;
-      for (int j = 0; j < 3; ++j) {
-        if (weights[j] > 0) value += weights[j] * data[f(face,j) + nv * col];
-      }
-      out[i + n * col] = value;
-    }
-  }
-  return out;
+  neurotransform::SurfaceIndex mesh(verts,f);
+  return neurotransform::sample_surface(mesh,coords,data,closest);
 }
 
 //' Ribbon sampling from volume onto surface

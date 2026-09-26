@@ -4,7 +4,13 @@
 \alias{cpp_barycentric_weights}
 \title{Compute barycentric interpolation weights for surface mesh}
 \usage{
-cpp_barycentric_weights(coords, vertices, faces, closest = TRUE)
+cpp_barycentric_weights(
+  coords,
+  vertices,
+  faces,
+  closest = TRUE,
+  indexed = TRUE
+)
 }
 \arguments{
 \item{coords}{Numeric matrix (N x 3) of query points}
@@ -15,9 +21,11 @@ cpp_barycentric_weights(coords, vertices, faces, closest = TRUE)
 
 \item{closest}{Include closest edge/vertex points when the plane projection
 is outside a triangle (used for spherical resampling).}
+
+\item{indexed}{Use the spatial index; FALSE retains exhaustive search for validation.}
 }
 \value{
-List with rows, cols, vals for sparse matrix construction
+List with sparse triplets, query diagnostics and build/query timings
 }
 \description{
 Finds the closest point on the mesh, including edge and vertex projections.

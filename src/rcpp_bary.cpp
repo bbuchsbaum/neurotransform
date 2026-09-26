@@ -1,7 +1,8 @@
 #include <RcppArmadillo.h>
-#include "surface_projection.h"
+#include "surface_index.h"
+#include <chrono>
 #ifdef _OPENMP
-  #include <omp.h>
+#include <omp.h>
 #endif
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -17,72 +18,49 @@
 //' @param faces Integer matrix (F x 3) of face indices (0-based)
 //' @param closest Include closest edge/vertex points when the plane projection
 //'   is outside a triangle (used for spherical resampling).
-//' @return List with rows, cols, vals for sparse matrix construction
+//' @param indexed Use the spatial index; FALSE retains exhaustive search for validation.
+//' @return List with sparse triplets, query diagnostics and build/query timings
 //' @keywords internal
 // [[Rcpp::export]]
 Rcpp::List cpp_barycentric_weights(const Rcpp::NumericMatrix& coords,
                                    const Rcpp::NumericMatrix& vertices,
                                    const Rcpp::IntegerMatrix& faces,
-                                   bool closest = true) {
-  if (coords.ncol() != 3 || vertices.ncol() != 3 || faces.ncol() != 3)
-    Rcpp::stop("coords, vertices and faces must have three columns");
-  arma::mat pts = Rcpp::as<arma::mat>(coords);
-  arma::mat verts = Rcpp::as<arma::mat>(vertices);
-  // copy into Armadillo integer matrix to avoid strides/ownership surprises
-  arma::imat f = Rcpp::as<arma::imat>(faces);
-  neurotransform::validate_mesh(verts, f);
-
-  std::vector<int> rows;
-  std::vector<int> cols;
-  std::vector<double> vals;
-
+                                   bool closest = true, bool indexed = true) {
+  if (coords.ncol()!=3) Rcpp::stop("coords must have three columns");
+  auto start=std::chrono::steady_clock::now();
+  neurotransform::SurfaceIndex mesh(Rcpp::as<arma::mat>(vertices), Rcpp::as<arma::imat>(faces));
+  auto built=std::chrono::steady_clock::now();
+  int n=coords.nrow();
+  std::vector<neurotransform::SurfaceProjection> projections(n);
+  // Interrupt checks stay on the R thread, outside OpenMP workers.
+  for (int begin=0;begin<n;begin+=4096) {
+    Rcpp::checkUserInterrupt();
+    int end=std::min(n,begin+4096);
 #ifdef _OPENMP
-  #pragma omp parallel
-  {
-    std::vector<int> lrows; lrows.reserve(1024);
-    std::vector<int> lcols; lcols.reserve(1024);
-    std::vector<double> lvals; lvals.reserve(1024);
-
-    #pragma omp for nowait
-    for (int i = 0; i < pts.n_rows; ++i) {
-      arma::uword face_idx;
-      arma::rowvec bary(3);
-      if (!neurotransform::bary_point(pts.row(i), verts, f, closest, face_idx, bary)) continue;
-      arma::irowvec vids = f.row(face_idx);
-      for (int k = 0; k < 3; ++k) {
-        if (bary[k] > 0) {
-          lrows.push_back(i+1);
-          lcols.push_back(vids[k] + 1); // R 1-based
-          lvals.push_back(bary[k]);
-        }
-      }
-    }
-    #pragma omp critical
-    {
-      rows.insert(rows.end(), lrows.begin(), lrows.end());
-      cols.insert(cols.end(), lcols.begin(), lcols.end());
-      vals.insert(vals.end(), lvals.begin(), lvals.end());
-    }
-  }
-#else
-  for (int i = 0; i < pts.n_rows; ++i) {
-    arma::uword face_idx;
-    arma::rowvec bary(3);
-    if (!neurotransform::bary_point(pts.row(i), verts, f, closest, face_idx, bary)) continue;
-    arma::irowvec vids = f.row(face_idx);
-    for (int k = 0; k < 3; ++k) {
-      if (bary[k] > 0) {
-        rows.push_back(i+1);
-        cols.push_back(vids[k] + 1);
-        vals.push_back(bary[k]);
-      }
-    }
-  }
+    #pragma omp parallel for
 #endif
-
-  return Rcpp::List::create(
-    Rcpp::Named("rows") = rows,
-    Rcpp::Named("cols") = cols,
-    Rcpp::Named("vals") = vals
-  );
+    for (int i=begin;i<end;++i) {
+      neurotransform::Point3 p={{coords(i,0),coords(i,1),coords(i,2)}};
+      projections[i]=mesh.query(p,closest,indexed);
+    }
+  }
+  auto queried=std::chrono::steady_clock::now();
+  std::vector<int> rows,cols;
+  std::vector<double> vals;
+  rows.reserve(3*n);cols.reserve(3*n);vals.reserve(3*n);
+  Rcpp::NumericVector distances(n,NA_REAL);
+  Rcpp::IntegerVector face(n,NA_INTEGER),tested(n);
+  for (int i=0;i<n;++i) {
+    const auto& p=projections[i];tested[i]=p.tested;
+    if (p.face<0) continue;
+    face[i]=p.face+1;distances[i]=std::sqrt(p.distance2);
+    for (int k=0;k<3;++k) if (p.weights[k]>0) {
+      rows.push_back(i+1);cols.push_back(p.ids[k]+1);vals.push_back(p.weights[k]);
+    }
+  }
+  return Rcpp::List::create(Rcpp::Named("rows")=rows,Rcpp::Named("cols")=cols,Rcpp::Named("vals")=vals,
+    Rcpp::Named("distance")=distances,Rcpp::Named("face")=face,Rcpp::Named("triangle_tests")=tested,
+    Rcpp::Named("timing")=Rcpp::List::create(
+      Rcpp::Named("index_seconds")=std::chrono::duration<double>(built-start).count(),
+      Rcpp::Named("query_seconds")=std::chrono::duration<double>(queried-built).count()));
 }

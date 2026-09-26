@@ -15,4 +15,8 @@ area is only a sanity diagnostic. Radius spread is origin-based and tolerant,
 so sufficiently small translations are not claimed to be distinguishable.
 Uncertain signs or failure to find a generic ray are rejected.
 
-S3-S8 remain open.
+S3: shared indexed/exhaustive search passes `s3-tests.log`, including large-
+coordinate cancellation, deterministic ties and serialized sampler rebuilding.
+Distance is reconstructed from original convex corner coordinates and clamped
+to their AABB so floating-point pruning bounds remain conservative. Full-size
+performance and S4-S8 qualification remain open.

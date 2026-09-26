@@ -439,9 +439,12 @@ surface_sampler <- function(vertices, data, faces = NULL,
       if (is.matrix(data)) data[indices, , drop = FALSE] else data[indices]
     }
   } else {
+    index <- cpp_surface_index(vertices, faces - 1L)
     function(coords) {
-      cpp_barycentric_sample(coords, vertices, faces, data,
-                             closest = identical(projection, "closest"))
+      # Serialized external pointers are deliberately rebuilt from the captured
+      # immutable geometry; no live process pointer is part of the data contract.
+      if (!cpp_surface_index_valid(index)) index <<- cpp_surface_index(vertices, faces - 1L)
+      cpp_surface_index_sample(index, coords, data, closest = identical(projection, "closest"))
     }
   }
 
