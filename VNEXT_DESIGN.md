@@ -1338,8 +1338,13 @@ Making it explicit prevents silent errors.
 
 ## Surface resampling completion plan (2026-09-26)
 
-**Status:** S1 and S2 implemented and passed focused compiled checks. S3-S8
-remain open; full package and consumer qualification are not yet established.
+**Status:** S1-S3 and S5-S6 are implemented and verified. S4 full-template
+strict Workbench parity remains failed. S7 is implemented with experimental
+opt-in: synthetic and full downsampling comparisons pass, while upsampling
+parity remains failed. S8 local package checks and the consumer analytic probe
+pass; production admission and the downstream pin remain held. See
+[qualification receipts](output/surface-completion/qualification.md) for exact
+source, evidence and the remaining gates.
 **Baseline:** `65bc01db745e232e8acaeff6e64dba6d60816980`.
 
 **Outcome:** one correct surface-projection implementation used by every
@@ -1623,8 +1628,9 @@ python3 tools/generate_barycentric_oracle.py /path/to/wb_command /tmp/new-oracle
 R_LIBS=/path/to/rebuilt/library OMP_NUM_THREADS=4 python3 tools/compare_barycentric_templates.py /path/to/wb_command /path/to/pinned/inputs /tmp/new-template-attempt
 ```
 
-The second command remains sampled until S4 implements and documents its new
-full-target mode. Retain attempt-scoped evidence under `output/`, with compact
+The second command samples unless `--full` is supplied. Full ordinary and
+adaptive comparisons and retained-output reapplication tools are now available
+in `tools/`; exact executed commands are recorded in the qualification receipts. Retain attempt-scoped evidence under `output/`, with compact
 independent fixtures under `inst/extdata/`. A failed or incomplete attempt is
 not replaced by a success-only summary.
 
@@ -1634,5 +1640,8 @@ tie discrepancies; template errors beyond declared tolerance; questionable
 area measures; or a resource budget exceeded without an explained cause.
 Resolve the contract or numerical discrepancy before extending implementation.
 
-**Next action:** S3 exact spatial indexing, followed by full-target comparisons.
-S1/S2 receipts are in `output/surface-completion/`.
+**Remaining decision:** resolve the strict Workbench near-edge agreement
+contract before removing the adaptive experimental guard or advancing the
+downstream production pin. Keep the original failed 5e-5 receipts; any new
+acceptance contract requires prospective validation. Implementation, package,
+performance and method-specific receipts are in `output/surface-completion/`.

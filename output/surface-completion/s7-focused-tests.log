@@ -1,0 +1,23 @@
+ℹ Loading neurotransform
+Creating a new generic function for ‘transform’ in package ‘neurotransform’
+Creating a generic function for ‘det’ from package ‘base’ in package ‘neurotransform’
+Warning message:
+package ‘testthat’ was built under R version 4.5.2 
+barycentric_geometry: .......................................................................
+barycentric_workbench: .............
+surface_area: ..................1
+surface_index: ..................................................................
+surface_operators: ......................
+surface_policies: ................................................................
+
+══ Failed ══════════════════════════════════════════════════════════════════════
+── 1. Error ('test_surface_area.R:61:5'): experimental adaptive plans match uneq
+Error in `surface_mesh(mat(case$vertices), mat(case$faces) + 1L)`: vertices must be a numeric matrix with 3 columns
+Backtrace:
+    ▆
+ 1. └─neurotransform::surface_mesh(...) at test_surface_area.R:61:5
+
+══ DONE ════════════════════════════════════════════════════════════════════════
+Error:
+! Test failures.
+Execution halted

@@ -1,0 +1,235 @@
+{
+  "revision": "9ab40ffd9b3b9fd46ac2e805826cbc8fde60b429",
+  "script_sha256": "c63c12c93bcb1bd359b755c5b90178a24d2d47dca0a042b0379e3e8bb87a7000",
+  "threads": "4",
+  "budget": {
+    "construction_seconds": 60,
+    "additional_resident_bytes": 1073741824
+  },
+  "cases": [
+    {
+      "name": "L-164k-to-32k",
+      "input_sha256": "c701583fa22703edde4a34b73a26e7006590ab07a701b63c9b42f0241ac8cfc7",
+      "argv": [
+        "/usr/bin/time",
+        "-l",
+        "Rscript",
+        "tools/benchmark_surface_plan.R",
+        "/tmp/neurotransform-benchmark-L-164k-to-32k.rds",
+        "output/surface-completion/s8-benchmark/L-164k-to-32k.json"
+      ],
+      "exit": 0,
+      "result": {
+        "vertices": 163842,
+        "targets": 32492,
+        "columns": 11,
+        "construction_seconds": 0.897,
+        "application_seconds": 0.494,
+        "native_timing": {
+          "index_seconds": 0.318419916,
+          "query_seconds": 0.051540959
+        },
+        "sampler_construction_seconds": 0.242,
+        "cached_sampling_seconds": 0.0699999999999998,
+        "sampler_plan_max_error": 2.22044604925031e-16,
+        "baseline_resident_bytes": 183009280,
+        "passed": true,
+        "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+        "session": [
+          "R version 4.5.1 (2025-06-13)",
+          "Platform: aarch64-apple-darwin20",
+          "Running under: macOS Sonoma 14.3",
+          "",
+          "Matrix products: default",
+          "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ",
+          "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1",
+          "",
+          "locale:",
+          "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8",
+          "",
+          "time zone: America/Toronto",
+          "tzcode source: internal",
+          "",
+          "attached base packages:",
+          "[1] stats     graphics  grDevices utils     datasets  methods   base     ",
+          "",
+          "other attached packages:",
+          "[1] neurotransform_0.2.0",
+          "",
+          "loaded via a namespace (and not attached):",
+          "[1] compiler_4.5.1 tools_4.5.1    Rcpp_1.1.2     digest_0.6.39 "
+        ],
+        "peak_resident_bytes": 532873216,
+        "additional_peak_resident_bytes": 349863936
+      }
+    },
+    {
+      "name": "L-32k-to-164k",
+      "input_sha256": "792aab7efa0e38f7372b378fa1bc1a1a0bded7478641a13fab43916c6cf8eeda",
+      "argv": [
+        "/usr/bin/time",
+        "-l",
+        "Rscript",
+        "tools/benchmark_surface_plan.R",
+        "/tmp/neurotransform-benchmark-L-32k-to-164k.rds",
+        "output/surface-completion/s8-benchmark/L-32k-to-164k.json"
+      ],
+      "exit": 0,
+      "result": {
+        "vertices": 32492,
+        "targets": 163842,
+        "columns": 11,
+        "construction_seconds": 0.445,
+        "application_seconds": 4.88,
+        "native_timing": {
+          "index_seconds": 0.03524175,
+          "query_seconds": 0.201752417
+        },
+        "sampler_construction_seconds": 0.218,
+        "cached_sampling_seconds": 0.223999999999999,
+        "sampler_plan_max_error": 2.22044604925031e-16,
+        "baseline_resident_bytes": 120324096,
+        "passed": true,
+        "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+        "session": [
+          "R version 4.5.1 (2025-06-13)",
+          "Platform: aarch64-apple-darwin20",
+          "Running under: macOS Sonoma 14.3",
+          "",
+          "Matrix products: default",
+          "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ",
+          "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1",
+          "",
+          "locale:",
+          "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8",
+          "",
+          "time zone: America/Toronto",
+          "tzcode source: internal",
+          "",
+          "attached base packages:",
+          "[1] stats     graphics  grDevices utils     datasets  methods   base     ",
+          "",
+          "other attached packages:",
+          "[1] neurotransform_0.2.0",
+          "",
+          "loaded via a namespace (and not attached):",
+          "[1] compiler_4.5.1 tools_4.5.1    Rcpp_1.1.2     digest_0.6.39 "
+        ],
+        "peak_resident_bytes": 691093504,
+        "additional_peak_resident_bytes": 570769408
+      }
+    },
+    {
+      "name": "R-164k-to-32k",
+      "input_sha256": "a81d7db5cdee5837f0fb37a9c65984a4eac1c6ed6f806902777091f2c812b31b",
+      "argv": [
+        "/usr/bin/time",
+        "-l",
+        "Rscript",
+        "tools/benchmark_surface_plan.R",
+        "/tmp/neurotransform-benchmark-R-164k-to-32k.rds",
+        "output/surface-completion/s8-benchmark/R-164k-to-32k.json"
+      ],
+      "exit": 0,
+      "result": {
+        "vertices": 163842,
+        "targets": 32492,
+        "columns": 11,
+        "construction_seconds": 1.39,
+        "application_seconds": 0.488,
+        "native_timing": {
+          "index_seconds": 0.362152958,
+          "query_seconds": 0.114682167
+        },
+        "sampler_construction_seconds": 0.296,
+        "cached_sampling_seconds": 0.0230000000000001,
+        "sampler_plan_max_error": 2.22044604925031e-16,
+        "baseline_resident_bytes": 193576960,
+        "passed": true,
+        "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+        "session": [
+          "R version 4.5.1 (2025-06-13)",
+          "Platform: aarch64-apple-darwin20",
+          "Running under: macOS Sonoma 14.3",
+          "",
+          "Matrix products: default",
+          "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ",
+          "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1",
+          "",
+          "locale:",
+          "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8",
+          "",
+          "time zone: America/Toronto",
+          "tzcode source: internal",
+          "",
+          "attached base packages:",
+          "[1] stats     graphics  grDevices utils     datasets  methods   base     ",
+          "",
+          "other attached packages:",
+          "[1] neurotransform_0.2.0",
+          "",
+          "loaded via a namespace (and not attached):",
+          "[1] compiler_4.5.1 tools_4.5.1    Rcpp_1.1.2     digest_0.6.39 "
+        ],
+        "peak_resident_bytes": 559923200,
+        "additional_peak_resident_bytes": 366346240
+      }
+    },
+    {
+      "name": "R-32k-to-164k",
+      "input_sha256": "f32f26e4bd0dacbbff5d1ae9699b7d07220a9705244518a5e86a3eddeb82e6c8",
+      "argv": [
+        "/usr/bin/time",
+        "-l",
+        "Rscript",
+        "tools/benchmark_surface_plan.R",
+        "/tmp/neurotransform-benchmark-R-32k-to-164k.rds",
+        "output/surface-completion/s8-benchmark/R-32k-to-164k.json"
+      ],
+      "exit": 0,
+      "result": {
+        "vertices": 32492,
+        "targets": 163842,
+        "columns": 11,
+        "construction_seconds": 0.424,
+        "application_seconds": 2.649,
+        "native_timing": {
+          "index_seconds": 0.017259875,
+          "query_seconds": 0.1538655
+        },
+        "sampler_construction_seconds": 0.117,
+        "cached_sampling_seconds": 0.219,
+        "sampler_plan_max_error": 2.22044604925031e-16,
+        "baseline_resident_bytes": 118030336,
+        "passed": true,
+        "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+        "session": [
+          "R version 4.5.1 (2025-06-13)",
+          "Platform: aarch64-apple-darwin20",
+          "Running under: macOS Sonoma 14.3",
+          "",
+          "Matrix products: default",
+          "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ",
+          "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1",
+          "",
+          "locale:",
+          "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8",
+          "",
+          "time zone: America/Toronto",
+          "tzcode source: internal",
+          "",
+          "attached base packages:",
+          "[1] stats     graphics  grDevices utils     datasets  methods   base     ",
+          "",
+          "other attached packages:",
+          "[1] neurotransform_0.2.0",
+          "",
+          "loaded via a namespace (and not attached):",
+          "[1] compiler_4.5.1 tools_4.5.1    Rcpp_1.1.2     digest_0.6.39 "
+        ],
+        "peak_resident_bytes": 666484736,
+        "additional_peak_resident_bytes": 548454400
+      }
+    }
+  ]
+}

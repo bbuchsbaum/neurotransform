@@ -1,0 +1,24 @@
+{
+  "schema": "neuroatlas.surface-engine-probe.v1",
+  "passed": true,
+  "claim": "Spherical barycentric interpolation is local and face-order invariant",
+  "expected": 0.333333333333333,
+  "tolerance": 1e-12,
+  "results": {
+    "original": {
+      "value": 0.333333333333333,
+      "contributing_vertices": [1, 3, 5],
+      "weights": [0.333333333333333, 0.333333333333333, 0.333333333333333]
+    },
+    "reversed": {
+      "value": 0.333333333333333,
+      "contributing_vertices": [1, 3, 5],
+      "weights": [0.333333333333333, 0.333333333333333, 0.333333333333333]
+    }
+  },
+  "version": "0.2.0",
+  "remote_sha": null,
+  "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+  "probe_sha256": "9d437074af69f2738b9f028d52a4173aa4a9fb949efc126105774ecf8c8cc49b",
+  "session": ["R version 4.5.1 (2025-06-13)", "Platform: aarch64-apple-darwin20", "Running under: macOS Sonoma 14.3", "", "Matrix products: default", "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ", "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1", "", "locale:", "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8", "", "time zone: America/Toronto", "tzcode source: internal", "", "attached base packages:", "[1] stats     graphics  grDevices utils     datasets  methods   base     ", "", "loaded via a namespace (and not attached):", "[1] neurotransform_0.2.0 compiler_4.5.1       tools_4.5.1         ", "[4] Rcpp_1.1.2           digest_0.6.39       "]
+}

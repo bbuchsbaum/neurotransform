@@ -1,0 +1,28 @@
+          used (Mb) gc trigger (Mb) limit (Mb) max used (Mb)
+Ncells  473329 25.3     991737   53         NA   721262 38.6
+Vcells 2064984 15.8    8388608   64      36864  4625946 35.3
+
+Attaching package: ‘neurotransform’
+
+The following object is masked from ‘package:base’:
+
+    transform
+
+        6.40 real         2.06 user         0.17 sys
+           691093504  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               45011  page reclaims
+                  32  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  14  voluntary context switches
+                4332  involuntary context switches
+         22740090198  instructions retired
+          7419694440  cycles elapsed
+           254332288  peak memory footprint

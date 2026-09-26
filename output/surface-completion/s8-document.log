@@ -1,0 +1,4 @@
+ℹ Loading neurotransform
+Creating a new generic function for ‘transform’ in package ‘neurotransform’
+Creating a generic function for ‘det’ from package ‘base’ in package ‘neurotransform’
+Writing 'apply_surface_resampling.Rd'

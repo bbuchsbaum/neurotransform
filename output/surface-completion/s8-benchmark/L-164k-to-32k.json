@@ -1,0 +1,18 @@
+{
+  "vertices": 163842,
+  "targets": 32492,
+  "columns": 11,
+  "construction_seconds": 0.897,
+  "application_seconds": 0.494,
+  "native_timing": {
+    "index_seconds": 0.318419916,
+    "query_seconds": 0.051540959
+  },
+  "sampler_construction_seconds": 0.242,
+  "cached_sampling_seconds": 0.0699999999999998,
+  "sampler_plan_max_error": 2.22044604925031e-16,
+  "baseline_resident_bytes": 183009280,
+  "passed": true,
+  "dll_sha256": "6a785f16aba7ccae2063345928155b048c6060aaaeeab0397c0dd41bfb1a405a",
+  "session": ["R version 4.5.1 (2025-06-13)", "Platform: aarch64-apple-darwin20", "Running under: macOS Sonoma 14.3", "", "Matrix products: default", "BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib ", "LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1", "", "locale:", "[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8", "", "time zone: America/Toronto", "tzcode source: internal", "", "attached base packages:", "[1] stats     graphics  grDevices utils     datasets  methods   base     ", "", "other attached packages:", "[1] neurotransform_0.2.0", "", "loaded via a namespace (and not attached):", "[1] compiler_4.5.1 tools_4.5.1    Rcpp_1.1.2     digest_0.6.39 "]
+}

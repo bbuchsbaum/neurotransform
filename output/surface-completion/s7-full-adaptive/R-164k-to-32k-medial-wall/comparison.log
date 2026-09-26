@@ -1,0 +1,25 @@
+
+Attaching package: ‘neurotransform’
+
+The following object is masked from ‘package:base’:
+
+    transform
+
+       15.46 real         6.66 user         0.72 sys
+           613711872  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              142316  page reclaims
+                  29  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                 151  voluntary context switches
+               36103  involuntary context switches
+         57804423652  instructions retired
+         24683834158  cycles elapsed
+           360287936  peak memory footprint

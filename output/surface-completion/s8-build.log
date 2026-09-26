@@ -1,0 +1,12 @@
+* checking for file ‘./DESCRIPTION’ ... OK
+* preparing ‘neurotransform’:
+* checking DESCRIPTION meta-information ... OK
+* cleaning src
+* installing the package to build vignettes
+* creating vignettes ... OK
+* cleaning src
+* checking for LF line-endings in source and make files and shell scripts
+* checking for empty or unneeded directories
+Removed empty directory ‘neurotransform/tests/testthat/_snaps’
+* building ‘neurotransform_0.2.0.tar.gz’
+

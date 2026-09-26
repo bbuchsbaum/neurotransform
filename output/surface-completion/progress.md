@@ -50,3 +50,49 @@ R-header/Clang unknown-warning-option warning. Vignettes and examples pass.
 The first documentation attempt using roxygen's source loader failed because
 its temporary S4 package namespace was unavailable; generating with pkgload and
 compile=FALSE succeeds, with both logs retained.
+
+S7: the separately named adaptive method is implemented with explicit
+`experimental=TRUE`, geometry-bound positive areas, units and provenance.
+Analytic support/ROI/area identities and twelve small independent Workbench
+basis/label/ROI cases pass. An independent review found that effective area
+needed to follow per-column missing-data omission; the corrected diagnostics
+and reproduced regressions pass. Exact source-vertex queries now retain exact
+structural zeros, preventing tiny spurious adaptive/categorical contributors.
+
+The first S7 fixture-generation attempt reused one ROI filename; the retained
+attempt uses immutable per-case ROI files and hashes. An intermediate focused
+test failed in its JSON-to-matrix fixture reader, which was corrected. Those
+attempt logs remain and are not counted as numerical passes.
+
+S7/S8 full templates: both adaptive downsampling hemispheres pass the original
+5e-5 gate with and without published medial-wall masks. Upsampling still fails
+(maximum 1.64512e-4). Supported label outputs match for both policies in all eight
+cases; coverage masks agree. The first full label report counted a missing-key
+encoding mismatch (native explicit 0 versus Workbench 1) as prediction error.
+The final report separates that mapping from supported categorical predictions;
+no numerical tolerance was relaxed. The effective-area identity has scaled
+error at most 2.28e-14 across these workloads. Ordinary full-template maxima
+remain unchanged after the exact-vertex fix, with three of four routes failing.
+
+S8 local package gate: version 0.2.0, 1689 passing assertions, zero failures,
+69 optional-fixture skips, zero errors and one existing R-header/Clang warning.
+The new vignette renders and its results were inspected: ordinary +1/3 and
+edge zero, retained weight 2/3 under omission, matching 2/3 adjoint products,
+and matching effective-area integrals 6248.2. One/four-thread results are bitwise
+identical. The original neuroatlas compiled admission probe now passes both
+face orders at +1/3. Source/artifact hashes are bound to the exact implementation
+revision in `source-binding.json`; package checks do not admit production routes.
+
+S8 performance: the full comparison harness includes CSV parsing, two plans,
+wide expected/result matrices and label applications. Its final absolute peak
+RSS sometimes exceeds 1 GiB. A separate engine benchmark removes CSV parsing
+from measurement and records baseline RSS, construction, application, reusable
+sampler creation and cached sampling separately. All four ordinary routes take
+0.424–1.39 seconds to construct and add 334–544 MiB peak RSS, passing the declared
+60-second/1-GiB additional-memory budget. Plan and cached sampler values agree
+within 2.23e-16. Full comparison-harness memory receipts are retained as well.
+
+S8 downstream admission is held: neuroatlas's existing engine pin is unchanged,
+and its unrelated working-tree changes were preserved. Full method-specific
+parity gates remain failed; the repaired analytic probe alone is insufficient
+to activate routes. The Workbench image mounted for this task was unmounted.

@@ -1,0 +1,9 @@
+ℹ Loading neurotransform
+Creating a new generic function for ‘transform’ in package ‘neurotransform’
+Creating a generic function for ‘det’ from package ‘base’ in package ‘neurotransform’
+Warning message:
+package ‘testthat’ was built under R version 4.5.2 
+surface_area: ..........................................................................................................................................................
+surface_index: ..................................................................
+
+══ DONE ════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,175 @@
+* installing *source* package ‘neurotransform’ ...
+** this is package ‘neurotransform’ version ‘0.1.0’
+** using staged installation
+** libs
+using C++ compiler: ‘Homebrew clang version 20.1.8’
+using SDK: ‘MacOSX14.2.sdk’
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c RcppExports.cpp -o RcppExports.o
+In file included from RcppExports.cpp:4:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_apply.cpp -o rcpp_apply.o
+In file included from rcpp_apply.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_bary.cpp -o rcpp_bary.o
+In file included from rcpp_bary.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_jacobian.cpp -o rcpp_jacobian.o
+In file included from rcpp_jacobian.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_resample_path.cpp -o rcpp_resample_path.o
+In file included from rcpp_resample_path.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_resample_plan.cpp -o rcpp_resample_plan.o
+In file included from rcpp_resample_plan.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_ribbon.cpp -o rcpp_ribbon.o
+In file included from rcpp_ribbon.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_sample.cpp -o rcpp_sample.o
+In file included from rcpp_sample.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_surface_geometry.cpp -o rcpp_surface_geometry.o
+In file included from rcpp_surface_geometry.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_surface_index.cpp -o rcpp_surface_index.o
+In file included from rcpp_surface_index.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_triplet.cpp -o rcpp_triplet.o
+In file included from rcpp_triplet.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp.h:27:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_warp.cpp -o rcpp_warp.o
+In file included from rcpp_warp.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_weights.cpp -o rcpp_weights.o
+In file included from rcpp_weights.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -I"/Library/Frameworks/R.framework/Resources/include" -DNDEBUG  -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include' -I'/Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include' -I/opt/R/arm64/include -I/opt/homebrew/opt/llvm/include -I/opt/homebrew/opt/gettext/include    -fPIC  -falign-functions=64 -Wall -g -O2  -fopenmp  -c rcpp_worldcoords.cpp -o rcpp_worldcoords.o
+In file included from rcpp_worldcoords.cpp:1:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo.h:29:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/RcppArmadillo/include/RcppArmadillo/interface/RcppArmadilloForward.h:26:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/RcppCommon.h:30:
+In file included from /Users/bbuchsbaum/Library/R/arm64/4.5/library/Rcpp/include/Rcpp/r/headers.h:71:
+In file included from /Library/Frameworks/R.framework/Resources/include/R.h:70:
+/Library/Frameworks/R.framework/Resources/include/R_ext/Boolean.h:62:36: warning: unknown warning group '-Wfixed-enum-extension', ignored [-Wunknown-warning-option]
+   62 | #  pragma clang diagnostic ignored "-Wfixed-enum-extension"
+      |                                    ^
+1 warning generated.
+/opt/homebrew/opt/llvm/bin/clang++ -dynamiclib -Wl,-headerpad_max_install_names -undefined dynamic_lookup -L/Library/Frameworks/R.framework/Resources/lib -L/opt/R/arm64/lib -L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib -lomp -L/opt/homebrew/opt/gettext/lib -o neurotransform.so RcppExports.o rcpp_apply.o rcpp_bary.o rcpp_jacobian.o rcpp_resample_path.o rcpp_resample_plan.o rcpp_ribbon.o rcpp_sample.o rcpp_surface_geometry.o rcpp_surface_index.o rcpp_triplet.o rcpp_warp.o rcpp_weights.o rcpp_worldcoords.o -L/Library/Frameworks/R.framework/Resources/lib -lRlapack -L/Library/Frameworks/R.framework/Resources/lib -lRblas -L/opt/homebrew/opt/gcc/lib/gcc/current -lgfortran -lquadmath -F/Library/Frameworks/R.framework/.. -framework R
+installing to /private/tmp/neurotransform-surface-library/00LOCK-neurotransform/00new/neurotransform/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+Creating a new generic function for ‘transform’ in package ‘neurotransform’
+Creating a generic function for ‘det’ from package ‘base’ in package ‘neurotransform’
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (neurotransform)

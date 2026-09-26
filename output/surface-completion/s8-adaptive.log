@@ -1,0 +1,8 @@
+L-164k-to-32k-all 2.44982460836374e-05 {'aggregate': 0, 'largest': 0} exit 0
+L-164k-to-32k-medial-wall 2.44982460836374e-05 {'aggregate': 0, 'largest': 0} exit 0
+L-32k-to-164k-all 0.000164511936736389 {'aggregate': 0, 'largest': 0} exit 1
+L-32k-to-164k-medial-wall 8.0553794367666e-05 {'aggregate': 0, 'largest': 0} exit 1
+R-164k-to-32k-all 2.58036052332988e-05 {'aggregate': 0, 'largest': 0} exit 0
+R-164k-to-32k-medial-wall 2.58036052332988e-05 {'aggregate': 0, 'largest': 0} exit 0
+R-32k-to-164k-all 8.25290980430715e-05 {'aggregate': 0, 'largest': 0} exit 1
+R-32k-to-164k-medial-wall 8.25290980430715e-05 {'aggregate': 0, 'largest': 0} exit 1

@@ -1,0 +1,9 @@
+
+Attaching package: ‘neurotransform’
+
+The following object is masked from ‘package:base’:
+
+    transform
+
+        8.30 real         3.64 user         0.30 sys
+time: sysctl kern.clockrate: Operation not permitted

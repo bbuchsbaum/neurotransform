@@ -1,0 +1,22 @@
+* installing *source* package ‘neurotransform’ ...
+** this is package ‘neurotransform’ version ‘0.2.0’
+** using staged installation
+** libs
+using C++ compiler: ‘Homebrew clang version 20.1.8’
+using SDK: ‘MacOSX14.2.sdk’
+make: Nothing to be done for `all'.
+installing to /private/tmp/neurotransform-surface-library/00LOCK-neurotransform/00new/neurotransform/libs
+** R
+** inst
+** byte-compile and prepare package for lazy loading
+Creating a new generic function for ‘transform’ in package ‘neurotransform’
+Creating a generic function for ‘det’ from package ‘base’ in package ‘neurotransform’
+** help
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** checking absolute paths in shared objects and dynamic libraries
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (neurotransform)
