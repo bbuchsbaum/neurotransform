@@ -1,0 +1,12 @@
+Loading required package: Rcpp
+Warning: package ‘Rcpp’ was built under R version 4.5.2
+Loading required package: digest
+Warning: package ‘digest’ was built under R version 4.5.2
+Loading required package: neuroim2
+Loading required package: Matrix
+Loading required namespace: roxygen_devtest
+Failed with error:  ‘there is no package called ‘roxygen_devtest’’
+Error in .requirePackage(package) : 
+  unable to load required package ‘roxygen_devtest’
+Calls: <Anonymous> ... makeClassRepresentation -> makeExtends -> .requirePackage
+Execution halted

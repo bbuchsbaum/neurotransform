@@ -40,3 +40,13 @@ queries, omitting a small positive third native weight. Repeating the independen
 face/edge comparison after float32 radius scaling still finds the interior face
 closer. These diagnosed differences do not establish Workbench parity: the
 original gate remains failed. No small weights are silently removed.
+
+S5/S6: explicit ROI, missing-value and label policies; frozen Euclidean adjoint;
+geometry-verified reverse construction; and deprecated legacy inverse are
+implemented. Analytic tests and ordinary Workbench mask/non-tied-label fixtures
+pass. `s5-s6-testthat.Rout` records 1521 passes, zero failures and 69 skips for
+unavailable optional fixtures. Full R CMD check has zero errors and one existing
+R-header/Clang unknown-warning-option warning. Vignettes and examples pass.
+The first documentation attempt using roxygen's source loader failed because
+its temporary S4 package namespace was unavailable; generating with pkgload and
+compile=FALSE succeeds, with both logs retained.

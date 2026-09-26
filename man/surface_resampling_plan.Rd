@@ -9,7 +9,10 @@ surface_resampling_plan(
   moving,
   method = c("barycentric", "nearest"),
   spherical = TRUE,
-  radius = 100
+  radius = 100,
+  source_mask = NULL,
+  target_mask = NULL,
+  outside = NULL
 )
 }
 \arguments{
@@ -22,6 +25,14 @@ surface_resampling_plan(
 \item{spherical}{Logical; if \code{TRUE}, require both meshes to be approximately spherical}
 
 \item{radius}{Radius used when \code{spherical=TRUE} (both meshes are rescaled to this radius)}
+
+\item{source_mask}{Optional logical or finite numeric input ROI; positive values
+include vertices. Exclusion is applied before row normalization.}
+
+\item{target_mask}{Optional output ROI, applied after normalization.}
+
+\item{outside}{Uncovered-query policy: \code{"error"}, \code{"missing"}, or \code{"nearest"}.
+Defaults to \code{"error"} for spherical and \code{"nearest"} for nonspherical meshes.}
 }
 \value{
 A \code{SurfaceResamplingPlan} object
@@ -35,5 +46,6 @@ Spherical barycentric resampling uses the closest point on the rescaled
 triangular mesh, including edges and vertices (ordinary barycentric, without
 adaptive area correction). It does not use radial ray intersections. For
 nonspherical meshes, only interior orthogonal projections are considered,
-with a nearest-vertex fallback for uncovered queries.
+with an explicit policy for uncovered queries. The default is nearest-vertex
+fallback for nonspherical meshes and an error for spherical meshes.
 }

@@ -8,21 +8,54 @@ apply_surface_resampling(
   plan,
   x,
   inverse = FALSE,
-  normalize = c("element", "sum", "none")
+  normalize = c("element", "sum", "none"),
+  na_policy = c("propagate", "omit", "error"),
+  data_type = c("continuous", "label"),
+  label_method = c("aggregate", "largest"),
+  label_table = NULL,
+  unassigned = NA_integer_,
+  details = FALSE
 )
 }
 \arguments{
-\item{plan}{A \code{SurfaceResamplingPlan}}
+\item{plan}{A \code{SurfaceResamplingPlan}.}
 
-\item{x}{Vertex data (\code{length == n_moving}) or matrix (\verb{n_moving x k})}
+\item{x}{Numeric vertex vector or matrix with \code{n_moving} rows.}
 
-\item{inverse}{Logical; apply inverse direction (\code{reference -> moving}) by transposing weights}
+\item{inverse}{Legacy transpose followed by normalization. Deprecated; use
+\code{apply_surface_adjoint()} or construct a reverse plan explicitly.}
 
-\item{normalize}{One of \code{"element"}, \code{"sum"}, or \code{"none"}}
+\item{normalize}{\code{"element"} normalizes each output row; \code{"sum"} normalizes
+represented input columns; \code{"none"} retains stored weights. Column
+normalization preserves represented discrete mass before target masking;
+it is not anatomical area correction.}
+
+\item{na_policy}{\code{"propagate"}, \code{"omit"} with finite-weight renormalization,
+or \code{"error"}. Omission requires \code{normalize="element"}.}
+
+\item{data_type}{\code{"continuous"} or \code{"label"} (integer keys).}
+
+\item{label_method}{\code{"aggregate"} or \code{"largest"}.}
+
+\item{label_table}{Optional data frame with a unique integer \code{key} column.
+Other columns, such as names and colors, are preserved unchanged.}
+
+\item{unassigned}{Integer output key for unavailable labels, or \code{NA}.}
+
+\item{details}{Return values and per-column coverage diagnostics.}
 }
 \value{
-Resampled vector or matrix
+Vector/matrix, or a list when \code{details=TRUE}. Diagnostics include raw
+source and finite-data weight mass before normalization and target masking.
 }
 \description{
-Apply a surface resampling plan to vertex data
+Geometry, source ROI mass and finite-data mass are distinct. Unsupported or
+masked outputs are unavailable (\code{NA}), while supported numerical zero remains
+zero. Zero-weight missing inputs never contaminate an output. Omission returns
+the retained raw weight mass as an attribute, or in the detailed result.
+}
+\details{
+Label keys are never averaged. Aggregate voting sums weights for each key;
+largest voting selects one source vertex. Ties select the smallest label key
+for aggregate voting and the smallest source vertex index for largest voting.
 }

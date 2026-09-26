@@ -1,0 +1,95 @@
+
+R version 4.5.1 (2025-06-13) -- "Great Square Root"
+Copyright (C) 2025 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin20
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(testthat)
+Warning message:
+package 'testthat' was built under R version 4.5.2 
+> library(neurotransform)
+
+Attaching package: 'neurotransform'
+
+The following object is masked from 'package:base':
+
+    transform
+
+> 
+> test_check("neurotransform")
+
+Attaching package: 'Matrix'
+
+The following object is masked from 'package:neurotransform':
+
+    det
+
+[ FAIL 0 | WARN 0 | SKIP 69 | PASS 1521 ]
+
+══ Skipped tests (69) ══════════════════════════════════════════════════════════
+• file.exists(forward_path) is not TRUE (1):
+  'test_ants_nonlinear_resample.R:220:3'
+• file.exists(h5_path) is not TRUE (4): 'test_coverage_io.R:123:3',
+  'test_coverage_io.R:440:3', 'test_coverage_io.R:451:3',
+  'test_coverage_warp.R:236:3'
+• file.exists(itk_bin) is not TRUE (2): 'test_coverage_io.R:158:3',
+  'test_coverage_io.R:226:3'
+• file.exists(path) is not TRUE (7): 'test_afni_io.R:3:3',
+  'test_afni_warp.R:32:3', 'test_ants_h5_loader.R:59:3',
+  'test_ants_h5_loader.R:69:3', 'test_ants_h5_loader.R:78:3',
+  'test_chris_t1.R:3:3', 'test_coverage_io.R:11:3'
+• file.exists(src_path) is not TRUE (5): 'test_afni_linear_resample.R:7:3',
+  'test_afni_nonlinear_resample.R:10:3', 'test_ants_nonlinear_resample.R:55:3',
+  'test_ants_nonlinear_resample.R:93:3', 'test_coverage_io.R:399:3'
+• file.exists(warp_path) is not TRUE (27):
+  'test_afni_nonlinear_resample.R:39:3', 'test_ants_nonlinear_resample.R:4:3',
+  'test_ants_nonlinear_resample.R:21:3',
+  'test_ants_nonlinear_resample.R:125:3',
+  'test_ants_nonlinear_resample.R:139:3',
+  'test_ants_nonlinear_resample.R:180:3',
+  'test_ants_nonlinear_resample.R:200:3',
+  'test_ants_nonlinear_resample.R:245:3', 'test_coverage_fsl.R:193:3',
+  'test_coverage_io.R:133:3', 'test_coverage_io.R:178:3',
+  'test_coverage_io.R:384:3', 'test_coverage_jacobian.R:377:3',
+  'test_coverage_jacobian.R:397:3', 'test_coverage_transform_path.R:81:3',
+  'test_coverage_transform_path.R:100:3', 'test_coverage_warp_chain.R:64:3',
+  'test_coverage_warp_chain.R:78:3', 'test_coverage_warp_chain.R:95:3',
+  'test_coverage_warp_chain.R:137:3', 'test_coverage_warp.R:42:3',
+  'test_coverage_warp.R:61:3', 'test_coverage_warp.R:80:3',
+  'test_coverage_warp.R:99:3', 'test_coverage_warp.R:261:3',
+  'test_coverage_warp.R:287:3', 'test_coverage_warp.R:308:3'
+• Forward composite not available (1): 'test_ants_comprehensive.R:77:3'
+• Forward warp not available (1): 'test_ants_comprehensive.R:115:3'
+• H5 warp not available (2): 'test_ants_comprehensive.R:146:3',
+  'test_ants_comprehensive.R:247:3'
+• Inverse composite not available (3): 'test_ants_comprehensive.R:17:3',
+  'test_ants_comprehensive.R:33:3', 'test_ants_comprehensive.R:47:3'
+• ITK affine not available (1): 'test_ants_comprehensive.R:229:3'
+• NIfTI warp not available (5): 'test_ants_comprehensive.R:179:3',
+  'test_ants_comprehensive.R:203:3', 'test_ants_comprehensive.R:271:3',
+  'test_ants_comprehensive.R:292:3', 'test_ants_comprehensive.R:314:3'
+• On CRAN (1): 'test_coverage_cpp.R:176:3'
+• Real FNIRT fixtures not generated (run inst/extdata/fsl/register_to_mni.sh)
+  (7): 'test_fsl_fnirt_resample.R:63:3', 'test_fsl_fnirt_resample.R:78:3',
+  'test_fsl_fnirt_resample.R:100:3', 'test_fsl_fnirt_resample.R:112:3',
+  'test_fsl_fnirt_resample.R:134:3', 'test_fsl_fnirt_resample.R:154:3',
+  'test_fsl_fnirt_resample.R:178:3'
+• Source image not available (1): 'test_ants_nonlinear_resample.R:274:3'
+• Template file missing (1): 'test_neuroim_affine.R:6:3'
+
+[ FAIL 0 | WARN 0 | SKIP 69 | PASS 1521 ]
+> 
+> proc.time()
+   user  system elapsed 
+ 20.676   1.497  36.709 
